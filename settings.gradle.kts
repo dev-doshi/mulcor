@@ -11,4 +11,4 @@ dependencyResolutionManagement {
     }
 }
 
-include("mulcor-memory", "mulcor-core", "mulcor-net", "mulcor-harness")
+include("mulcor-memory", "mulcor-registry", "mulcor-core", "mulcor-net", "mulcor-harness")
