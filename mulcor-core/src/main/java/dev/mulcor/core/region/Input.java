@@ -16,11 +16,15 @@ public final class Input {
     /** X,Y,Z = block to break. */
     public static final int DIG = 2;
     /**
-     * X,Y,Z = position; A = block/item from the player's inventory; B = the clicked face + 1 (a Direction ordinal:
-     * the clicked block is X,Y,Z minus that direction), or 0 for a bare placement. A clicked block that reacts to
-     * being used (lever, button, comparator, repeater) is used instead of placing.
+     * X,Y,Z = position; A = block/item from the player's inventory, or {@link #HELD_ITEM} for the item in the
+     * player's hand (a network player, creative); B = the clicked face + 1 (a Direction ordinal: the clicked block is
+     * X,Y,Z minus that direction), or 0 for a bare placement; C = the click position inside the clicked block,
+     * thousandths packed x | y << 10 | z << 20. A clicked block that reacts to being used (lever, button, comparator,
+     * repeater) is used instead of placing.
      */
     public static final int PLACE = 3;
+    /** PLACE with A = HELD_ITEM: place the item in the player's selected hotbar slot. */
+    public static final int HELD_ITEM = -1;
     /** A = chest; B = slot; C = count (> 0 take into player, < 0 put from player). */
     public static final int CHEST = 4;
     /** X,Y,Z = spawn a primed TNT; A = fuse ticks. */
@@ -46,6 +50,10 @@ public final class Input {
      * button, cycles a repeater's delay or a comparator's mode.
      */
     public static final int USE_BLOCK = 11;
+    /** Creative inventory action: A = window slot (hotbar: 36-44), B = item id, C = count (0 clears the slot). */
+    public static final int CREATIVE_SLOT = 12;
+    /** Selected hotbar slot: A = 0-8. */
+    public static final int HELD_SLOT = 13;
 
     /** POSITION flag: the record carries only rotation/ground state; X,Y,Z are ignored. */
     public static final int NO_POSITION = 1;

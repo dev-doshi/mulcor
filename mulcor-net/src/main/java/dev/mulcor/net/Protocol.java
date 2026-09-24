@@ -3,6 +3,8 @@ package dev.mulcor.net;
 import net.minestom.server.instance.palette.Palette;
 import net.minestom.server.network.packet.PacketVanilla;
 import net.minestom.server.network.packet.client.play.ClientClickWindowPacket;
+import net.minestom.server.network.packet.client.play.ClientCreativeInventoryActionPacket;
+import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket;
 import net.minestom.server.network.packet.client.play.ClientPlayerActionPacket;
 import net.minestom.server.network.packet.client.play.ClientPlayerBlockPlacementPacket;
 import net.minestom.server.network.packet.client.play.ClientPlayerPositionAndRotationPacket;
@@ -36,6 +38,8 @@ public final class Protocol {
     public static final int POSITION_ROTATION = id(ClientPlayerPositionAndRotationPacket.class);
     public static final int ROTATION = id(ClientPlayerRotationPacket.class);
     public static final int GROUND = id(ClientPlayerPositionStatusPacket.class);
+    public static final int CREATIVE_SLOT = id(ClientCreativeInventoryActionPacket.class);
+    public static final int HELD_ITEM = id(ClientHeldItemChangePacket.class);
 
     // Server → client play packets written without Minestom objects (see PlayWriter).
     public static final int OUT_CHUNK_DATA = serverId(ChunkDataPacket.class);

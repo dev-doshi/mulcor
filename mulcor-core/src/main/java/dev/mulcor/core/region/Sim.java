@@ -154,15 +154,64 @@ final class Sim {
      * bare placement at (x, y, z). A clicked block another region owns is not used: the item is placed (a border
      * deviation until uses travel as messages).
      */
-    static void useItemOn(Region r, int eid, int x, int y, int z, int item, int face1) {
+    static void useItemOn(Region r, int eid, int slot, int x, int y, int z, int item, int face1, int cursor) {
         if (face1 > 0 && face1 <= 6) {
             int d = face1 - 1;
             int cx = x - RedstoneStates.OX[d], cy = y - RedstoneStates.OY[d], cz = z - RedstoneStates.OZ[d];
             if (r.world.blocks.inBounds(cx, cy, cz) && r.world.ownerOfBlock(cx, cz) == r.id && Redstone.use(r, cx, cy, cz)) {
                 return;
             }
+            if (item == Input.HELD_ITEM) {
+                placeHeld(r, eid, slot, cx, cy, cz, d, cursor);
+                return;
+            }
         }
-        place(r, eid, x, y, z, item);
+        if (item != Input.HELD_ITEM) place(r, eid, x, y, z, item);
+    }
+
+    /**
+     * {@code BlockItem.useOn} → {@code place} for a creative player's held block item: the placement position is the
+     * clicked block if it can be replaced, else the one against the clicked face; the state comes from
+     * {@link Placement}; nothing is consumed. Only positions this region owns (a border deviation, like the use).
+     */
+    private static void placeHeld(Region r, int eid, int slot, int cx, int cy, int cz, int face, int cursor) {
+        int item = r.world.hotbar[eid * 9 + r.world.heldSlot[eid]];
+        int block = item > 0 ? dev.mulcor.registry.Items.block(item) : -1;
+        if (block < 0) return; // not a block item (item use is not ported)
+        int clicked = r.world.blocks.get(cx, cy, cz);
+        boolean replacingClicked = Placement.replaceable(clicked) && dev.mulcor.registry.BlockData.block(clicked) != block;
+        int x = cx, y = cy, z = cz;
+        if (!replacingClicked) {
+            x += RedstoneStates.OX[face];
+            y += RedstoneStates.OY[face];
+            z += RedstoneStates.OZ[face];
+        }
+        BlockStorage b = r.world.blocks;
+        if (!b.inBounds(x, y, z) || r.world.ownerOfBlock(x, z) != r.id) return;
+        int target = b.get(x, y, z);
+        boolean combine = Placement.family(block) == Placement.SLAB && dev.mulcor.registry.BlockData.block(target) == block;
+        if (!Placement.replaceable(target) && !combine) return;
+        // getClickLocation - pos: the click inside the clicked block, relative to the placement position
+        double clickX = cx + (cursor & 1023) / 1000.0 - x, clickY = cy + (cursor >>> 10 & 1023) / 1000.0 - y;
+        double clickZ = cz + (cursor >>> 20 & 1023) / 1000.0 - z;
+        EntityTable t = r.table;
+        float yaw = Float.intBitsToFloat(t.aux1(slot)), pitch = Float.intBitsToFloat(t.aux2(slot));
+        int st = Placement.stateForPlacement(r, block, x, y, z, face, clickX, clickY, clickZ, yaw, pitch, replacingClicked,
+                target, r.placementDirs);
+        if (st < 0) return;
+        switch (RedstoneStates.kind(st)) {
+            case RedstoneStates.WIRE, RedstoneStates.REPEATER, RedstoneStates.COMPARATOR, RedstoneStates.TORCH,
+                    RedstoneStates.WALL_TORCH -> {
+                // getStateForPlacement of these reads the neighbours (connections, lock); canSurvive rejects
+                st = Redstone.updateFromNeighbourShapes(r, st, x, y, z);
+                if (RedstoneStates.isAir(st)) return;
+            }
+            default -> { }
+        }
+        // BlockItem.place → level.setBlock(pos, state, UPDATE_ALL_IMMEDIATE = 11), then setPlacedBy
+        if (!Redstone.setBlock(r, x, y, z, st, 11)) return;
+        Placement.placeSecondHalf(r, st, x, y, z);
+        Redstone.placedBy(r, st, x, y, z);
     }
 
     static void place(Region r, int eid, int x, int y, int z, int item) {

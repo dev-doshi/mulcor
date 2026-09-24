@@ -46,6 +46,17 @@ final class Packets {
                 new ClientPlayerBlockPlacementPacket(PlayerHand.MAIN, new Vec(x, y, z), face, 0.5f, 0.5f, 0.5f, false, false, 9));
     }
 
+    static byte[] heldItem(int slot) {
+        return frame(Protocol.HELD_ITEM, net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket.SERIALIZER,
+                new net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket((short) slot));
+    }
+
+    static byte[] creativeSlot(int slot, net.minestom.server.item.ItemStack stack) {
+        return frame(Protocol.CREATIVE_SLOT,
+                net.minestom.server.network.packet.client.play.ClientCreativeInventoryActionPacket.SERIALIZER,
+                new net.minestom.server.network.packet.client.play.ClientCreativeInventoryActionPacket((short) slot, stack));
+    }
+
     static byte[] position(double x, double y, double z) {
         return frame(Protocol.POSITION, ClientPlayerPositionPacket.SERIALIZER, new ClientPlayerPositionPacket(new Vec(x, y, z), true, false));
     }

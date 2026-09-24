@@ -709,6 +709,14 @@ final class Redstone {
         }
     }
 
+    /**
+     * {@code Block.setPlacedBy} after a player places a block: {@code DiodeBlock} ticks in 1 when it should already be
+     * on (the placement itself sends no update to it).
+     */
+    static void placedBy(Region r, int st, int x, int y, int z) {
+        if (isDiode(st) && shouldTurnOn(r, st, x, y, z)) scheduleTick(r, x, y, z, block(st), 1, NORMAL);
+    }
+
     /** {@code DiodeBlock.shouldTurnOn}: {@code getInputSignal > 0}; {@code ComparatorBlock.shouldTurnOn}. */
     private static boolean shouldTurnOn(Region r, int st, int x, int y, int z) {
         if (kind(st) != COMPARATOR) return getInputSignal(r, st, x, y, z) > 0;

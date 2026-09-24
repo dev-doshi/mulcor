@@ -1,6 +1,5 @@
 package dev.mulcor.net;
 
-import dev.mulcor.core.Blocks;
 import dev.mulcor.core.region.Input;
 import dev.mulcor.memory.NativeMemory;
 import io.netty.buffer.ByteBuf;
@@ -108,7 +107,8 @@ public final class IngressDecoder {
             VarInts.read(in); // hand
             long pos = in.readLong();
             int face = VarInts.read(in);
-            in.skipBytes(3 * Float.BYTES + 2); // cursor x/y/z, inside block, hit world border
+            int cursor = cursor(in.readFloat()) | cursor(in.readFloat()) << 10 | cursor(in.readFloat()) << 20;
+            in.skipBytes(2); // inside block, hit world border
             lastSequence = Math.max(lastSequence, VarInts.read(in));
             int x = VarInts.blockX(pos), y = VarInts.blockY(pos), z = VarInts.blockZ(pos);
             switch (face) { // Minestom BlockFace order: BOTTOM, TOP, NORTH, SOUTH, WEST, EAST
@@ -120,7 +120,17 @@ public final class IngressDecoder {
                 case 5 -> x++;
                 default -> throw new IllegalArgumentException("face");
             }
-            return emit(Input.PLACE, x, y, z, Blocks.DIRT, face + 1, 0);
+            return emit(Input.PLACE, x, y, z, Input.HELD_ITEM, face + 1, cursor);
+        }
+        if (id == Protocol.HELD_ITEM) {
+            return emit(Input.HELD_SLOT, 0, 0, 0, in.readShort(), 0, 0);
+        }
+        if (id == Protocol.CREATIVE_SLOT) {
+            // slot, then the item stack: count, item id, component patch (not needed: the rest of the frame is skipped)
+            short slot = in.readShort();
+            int count = VarInts.read(in);
+            int item = count > 0 ? VarInts.read(in) : 0;
+            return emit(Input.CREATIVE_SLOT, 0, 0, 0, slot, item, count);
         }
         if (id == Protocol.POSITION) {
             double x = in.readDouble(), y = in.readDouble(), z = in.readDouble();
@@ -153,6 +163,11 @@ public final class IngressDecoder {
         }
         cold++;
         return true;
+    }
+
+    /** A click coordinate inside a block (0-1) in thousandths, 10 bits. */
+    private static int cursor(float f) {
+        return Math.clamp(Math.round(f * 1000), 0, 1000);
     }
 
     private static int ground(byte flags) {

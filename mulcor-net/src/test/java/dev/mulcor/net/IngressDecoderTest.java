@@ -32,7 +32,7 @@ class IngressDecoderTest {
             assertEquals(IngressDecoder.Result.DRAINED, dec.decode(buf));
             assertEquals(List.of(
                     new Rec(Input.DIG, 77, 10, 5, -20, 0, 0, 0),
-                    new Rec(Input.PLACE, 77, 4, 64, 4, Blocks.DIRT, 6, 0), // B = EAST (5) + 1
+                    new Rec(Input.PLACE, 77, 4, 64, 4, Input.HELD_ITEM, 6, 500 | 500 << 10 | 500 << 20), // B = EAST + 1; centre click
                     new Rec(Input.POSITION, 77, 12250, 70500, -3125, Input.ON_GROUND, 0, 0),
                     new Rec(Input.CHEST, 77, 0, 0, 0, 4, 7, 64),
                     new Rec(Input.CHEST, 77, 0, 0, 0, 4, 8, 32),
@@ -201,5 +201,28 @@ class IngressDecoderTest {
         ch.writeInbound(ch.alloc().directBuffer().writeBytes(new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0}));
         assertFalse(ch.isOpen());
         assertEquals(1, handler.malformed());
+    }
+
+    /** Hotbar selection and creative picks, including a stack with components (the rest of its frame is skipped). */
+    @Test
+    void decodesHeldSlotAndCreativeSlots() {
+        var sink = new RecordingSink();
+        var dec = new IngressDecoder(5, sink, false);
+        ByteBuf buf = direct();
+        try {
+            var named = net.minestom.server.item.ItemStack.of(net.minestom.server.item.Material.STONE, 3)
+                    .with(net.minestom.server.component.DataComponents.CUSTOM_NAME, net.kyori.adventure.text.Component.text("hi"));
+            Packets.write(buf, Packets.heldItem(4), Packets.creativeSlot(36, net.minestom.server.item.ItemStack.of(
+                    net.minestom.server.item.Material.OAK_PLANKS, 64)), Packets.creativeSlot(40, named),
+                    Packets.creativeSlot(37, net.minestom.server.item.ItemStack.AIR));
+            assertEquals(IngressDecoder.Result.DRAINED, dec.decode(buf));
+            assertEquals(List.of(
+                    new Rec(Input.HELD_SLOT, 5, 0, 0, 0, 4, 0, 0),
+                    new Rec(Input.CREATIVE_SLOT, 5, 0, 0, 0, 36, net.minestom.server.item.Material.OAK_PLANKS.id(), 64),
+                    new Rec(Input.CREATIVE_SLOT, 5, 0, 0, 0, 40, net.minestom.server.item.Material.STONE.id(), 3),
+                    new Rec(Input.CREATIVE_SLOT, 5, 0, 0, 0, 37, 0, 0)), sink.records);
+        } finally {
+            buf.release();
+        }
     }
 }

@@ -67,6 +67,8 @@ public final class Region {
     final ScheduledTicks fluidTicks;
     /** Past the fluid-tick phase (fluid ticks scheduled now run next epoch). */
     boolean fluidTicksDone;
+    /** Scratch for {@link Placement}: the player's nearest looking directions. */
+    final int[] placementDirs = new int[6];
     /** Scratch for {@link Fluids}. */
     final FluidScratch fluid = new FluidScratch();
     /** Network entity snapshots ({@link NetEntities}): every entity after each tick, double-buffered, seqlocked. */
@@ -486,7 +488,11 @@ public final class Region {
     /** Spawn a network player (JOIN input) and publish its id, or the failure, through the join ticket. */
     private void join(int x1000, int y1000, int z1000, int ticket) {
         int eid = spawn(x1000 / 1000.0, y1000 / 1000.0, z1000 / 1000.0, Entities.PLAYER, 0);
-        if (eid >= 0) joins++;
+        if (eid >= 0) {
+            joins++;
+            java.util.Arrays.fill(world.hotbar, eid * 9, eid * 9 + 9, 0);
+            world.heldSlot[eid] = 0;
+        }
         world.joins.complete(ticket, eid);
     }
 
@@ -653,7 +659,16 @@ public final class Region {
         switch (seg.get(I, off + Input.KIND)) {
             case Input.MOVE -> Sim.walk(table, slot, a, seg.get(I, off + Input.B));
             case Input.DIG -> Sim.dig(this, eid, x, y, z);
-            case Input.PLACE -> Sim.useItemOn(this, eid, x, y, z, a, seg.get(I, off + Input.B));
+            case Input.PLACE -> Sim.useItemOn(this, eid, slot, x, y, z, a, seg.get(I, off + Input.B), seg.get(I, off + Input.C));
+            case Input.CREATIVE_SLOT -> {
+                int hotbarSlot = a - 36;
+                if (hotbarSlot >= 0 && hotbarSlot < 9) {
+                    world.hotbar[eid * 9 + hotbarSlot] = seg.get(I, off + Input.C) > 0 ? seg.get(I, off + Input.B) : 0;
+                }
+            }
+            case Input.HELD_SLOT -> {
+                if (a >= 0 && a < 9) world.heldSlot[eid] = a;
+            }
             case Input.CHEST -> {
                 int count = seg.get(I, off + Input.C);
                 if (count > 0) Sim.takeFromChest(this, eid, a, seg.get(I, off + Input.B), count);

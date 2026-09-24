@@ -37,6 +37,11 @@ public final class World implements AutoCloseable {
     public final EntityDirectory directory;
     public final OffHeapInventory players;
     public final OffHeapInventory chests;
+    /**
+     * Network players' hotbars as vanilla item ids (0 = empty), 9 per entity id, and the selected slot. Written and
+     * read only by the region that owns the player (hand-offs happen at the epoch barrier).
+     */
+    public final int[] hotbar, heldSlot;
     public final Partition partition;
     /**
      * Egress journals, one per region slot ({@link Journal} records): what changed in each tick, for player sessions.
@@ -65,6 +70,8 @@ public final class World implements AutoCloseable {
         this.light = new LightEngine(blocks, blockLight, skyLight);
         this.directory = new EntityDirectory(memory, cfg.maxEntities());
         this.players = new OffHeapInventory(memory, cfg.maxEntities(), PLAYER_SLOTS);
+        this.hotbar = new int[cfg.maxEntities() * 9];
+        this.heldSlot = new int[cfg.maxEntities()];
         int numChests = cellsX * cellsZ * cfg.chestsPerCell();
         this.chests = new OffHeapInventory(memory, numChests, CHEST_SLOTS);
         this.chestX = new int[numChests];
