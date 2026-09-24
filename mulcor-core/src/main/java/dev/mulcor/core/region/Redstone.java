@@ -13,8 +13,9 @@ import java.lang.foreign.ValueLayout;
  * {@code Level.setBlock}, {@code LevelChunk.setBlockState}, {@code CollectingNeighborUpdater} (see
  * {@link NeighborUpdater}), shape updates, {@code SignalGetter}, {@code RedStoneWireBlock} with
  * {@code DefaultRedstoneWireEvaluator}, {@code DiodeBlock}/{@code RepeaterBlock}, {@code RedstoneTorchBlock} and
- * {@code RedstoneWallTorchBlock}, {@code RedstoneLampBlock}, {@code TntBlock}, {@code FallingBlock} and
- * {@code LevelTicks} ordering. Method names follow Mojang's; each cites the vanilla method it reproduces.
+ * {@code RedstoneWallTorchBlock}, {@code ComparatorBlock}, {@code ObserverBlock}, {@code LeverBlock},
+ * {@code ButtonBlock}, {@code RedstoneLampBlock}, {@code TntBlock}, {@code FallingBlock} and {@code LevelTicks}
+ * ordering. Method names follow Mojang's; each cites the vanilla method it reproduces.
  *
  * <h2>Time</h2>
  * {@code r.gameTime} is vanilla's {@code level.getGameTime()} as seen by the code running: the epoch during block
@@ -29,8 +30,10 @@ import java.lang.foreign.ValueLayout;
  * see that region's live state ({@link BlockStorage#getShared}).
  *
  * <h2>Not ported</h2>
- * Comparators, observers, pistons, levers, buttons, pressure plates and other signal sources (their signal is 0);
- * {@code updateShape} of blocks outside this set (fences, walls, ...); item drops of blocks that lose support.
+ * Pistons, pressure plates, tripwires, daylight detectors, targets and other signal sources (their signal is 0);
+ * comparator inputs whose value lives in a block entity (containers, jukebox, lectern, ...: they read 0) or an
+ * entity (item frames); buttons pressed by arrows; {@code updateShape} of blocks outside this set (fences, walls,
+ * ...); item drops of blocks that lose support.
  */
 final class Redstone {
     private static final ValueLayout.OfInt I = ValueLayout.JAVA_INT;
@@ -48,6 +51,8 @@ final class Redstone {
     static final int TORCH_DELAY = 2, MAX_RECENT_TOGGLES = 8, RECENT_TOGGLE_TIMER = 60, RESTART_DELAY = 160;
     /** {@code RedstoneLampBlock}: turn-off delay. {@code FallingBlock.getDelayAfterPlace()}. PrimedTnt fuse. */
     static final int LAMP_DELAY = 4, FALL_DELAY = 2, TNT_FUSE = 80;
+    /** {@code ComparatorBlock.getDelay}; the observer's pulse length and delay ({@code ObserverBlock}: 2). */
+    static final int COMPARATOR_DELAY = 2, OBSERVER_DELAY = 2;
     /** {@code LevelTicks}: most scheduled ticks run per game tick ({@code ServerLevel.tick}: 65536). */
     static final int MAX_TICKS_PER_TICK = 65536;
     /** SupportType ordinals for {@link #sturdy}. */
@@ -96,6 +101,8 @@ final class Redstone {
         if (old == BlockStorage.FAILED || old == state) return false;
         r.redstoneChanges++;
         boolean moved = (flags & UPDATE_MOVE_BY_PISTON) != 0;
+        // LevelChunk.setBlockState: the old block's block entity goes when the block type changes.
+        if (kind(old) == COMPARATOR && block(old) != block(state)) r.comparators.remove(ScheduledTicks.pack(x, y, z));
         if (block(old) != block(state) && ((flags & UPDATE_NEIGHBORS) != 0 || moved)) {
             affectNeighborsAfterRemoval(r, old, x, y, z, moved);
         }
@@ -190,7 +197,7 @@ final class Redstone {
                 if (wireCanSurvive(r, x, y, z)) updatePowerStrength(r, x, y, z, st);
                 else removeBlock(r, x, y, z);
             }
-            case REPEATER -> {
+            case REPEATER, COMPARATOR -> {
                 // DiodeBlock.neighborChanged
                 if (sturdy(state(r, x, y - 1, z), UP, RIGID)) {
                     checkTickOnNeighbor(r, st, x, y, z);
@@ -236,7 +243,15 @@ final class Redstone {
                 updateNeighborsAt(r, x, y - 1, z, -1);
                 updateNeighborsOfNeighboringWires(r, x, y, z);
             }
-            case REPEATER -> updateNeighborsInFront(r, st, x, y, z); // DiodeBlock.onPlace
+            case REPEATER, COMPARATOR -> updateNeighborsInFront(r, st, x, y, z); // DiodeBlock.onPlace
+            case OBSERVER -> {
+                // ObserverBlock.onPlace: a block placed powered with no pending tick turns off at once
+                if (kind(old) != OBSERVER && powered(st) && !r.blockTicks.isScheduled(ScheduledTicks.pack(x, y, z), block(st))) {
+                    int off = withPowered(st, false);
+                    setBlock(r, x, y, z, off, UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE);
+                    updateNeighborsInFront(r, off, x, y, z);
+                }
+            }
             case TORCH, WALL_TORCH -> notifyNeighbors(r, x, y, z); // RedstoneTorchBlock.onPlace
             case TNT -> {
                 // TntBlock.onPlace
@@ -249,7 +264,14 @@ final class Redstone {
 
     /** {@code BlockState.affectNeighborsAfterRemoval(level, pos, movedByPiston)} of the removed state. */
     private static void affectNeighborsAfterRemoval(Region r, int old, int x, int y, int z, boolean moved) {
-        if (moved) return; // wire, diode and torch all return early when moved by a piston
+        if (kind(old) == OBSERVER) {
+            // ObserverBlock.affectNeighborsAfterRemoval (no piston check): a pulse in progress ends
+            if (powered(old) && r.blockTicks.isScheduled(ScheduledTicks.pack(x, y, z), block(old))) {
+                updateNeighborsInFront(r, old, x, y, z);
+            }
+            return;
+        }
+        if (moved) return; // wire, diode, torch, lever and button all return early when moved by a piston
         switch (kind(old)) {
             case WIRE -> {
                 // RedStoneWireBlock.affectNeighborsAfterRemoval
@@ -257,8 +279,12 @@ final class Redstone {
                 updatePowerStrength(r, x, y, z, old);
                 updateNeighborsOfNeighboringWires(r, x, y, z);
             }
-            case REPEATER -> updateNeighborsInFront(r, old, x, y, z);
+            case REPEATER, COMPARATOR -> updateNeighborsInFront(r, old, x, y, z);
             case TORCH, WALL_TORCH -> notifyNeighbors(r, x, y, z);
+            case LEVER, BUTTON -> {
+                // LeverBlock / ButtonBlock.affectNeighborsAfterRemoval
+                if (powered(old)) updateAttachedNeighbours(r, old, x, y, z);
+            }
             default -> {}
         }
     }
@@ -369,6 +395,20 @@ final class Redstone {
                 }
                 return st;
             }
+            case COMPARATOR -> {
+                // DiodeBlock.updateShape
+                return dir == DOWN && !sturdy(neighborState, UP, RIGID) ? AIR : st;
+            }
+            case OBSERVER -> {
+                // ObserverBlock.updateShape: a change on the observed side starts a pulse (startSignal)
+                if (facing(st) == dir && !powered(st)) scheduleTick(r, x, y, z, block(st), OBSERVER_DELAY, NORMAL);
+                return st;
+            }
+            case LEVER, BUTTON -> {
+                // FaceAttachedHorizontalDirectionalBlock.updateShape: the support is opposite the connected side
+                int c = connected(st);
+                return dir == (c ^ 1) && !sturdy(neighborState, c, FULL) ? AIR : st;
+            }
             case TORCH -> {
                 // BaseTorchBlock.updateShape: canSurvive = canSupportCenter(below, UP)
                 return dir == DOWN && !sturdy(neighborState, UP, CENTER) ? AIR : st;
@@ -397,6 +437,9 @@ final class Redstone {
         return switch (kind(st)) {
             case WIRE -> wireSignal(r, st, x, y, z, dir);
             case REPEATER -> powered(st) && facing(st) == dir ? 15 : 0;
+            case COMPARATOR -> powered(st) && facing(st) == dir ? comparatorOutput(r, x, y, z) : 0; // DiodeBlock.getSignal
+            case OBSERVER -> powered(st) && facing(st) == dir ? 15 : 0; // ObserverBlock: = getDirectSignal
+            case LEVER, BUTTON -> powered(st) ? 15 : 0;
             case TORCH -> lit(st) && dir != UP ? 15 : 0;
             case WALL_TORCH -> lit(st) && facing(st) != dir ? 15 : 0;
             case REDSTONE_BLOCK -> 15;
@@ -408,7 +451,8 @@ final class Redstone {
     static int blockDirectSignal(Region r, int st, int x, int y, int z, int dir) {
         return switch (kind(st)) {
             case WIRE -> wireSignal(r, st, x, y, z, dir); // RedStoneWireBlock: !shouldSignal ? 0 : getSignal
-            case REPEATER -> powered(st) && facing(st) == dir ? 15 : 0; // DiodeBlock: = getSignal
+            case REPEATER, COMPARATOR, OBSERVER -> blockSignal(r, st, x, y, z, dir); // DiodeBlock, ObserverBlock
+            case LEVER, BUTTON -> powered(st) && connected(st) == dir ? 15 : 0;
             case TORCH, WALL_TORCH -> dir == DOWN ? blockSignal(r, st, x, y, z, dir) : 0;
             default -> 0;
         };
@@ -603,10 +647,11 @@ final class Redstone {
         return NONE;
     }
 
-    /** {@code RedStoneWireBlock.shouldConnectTo(state, dir)} (observers are not ported: plain signal sources). */
+    /** {@code RedStoneWireBlock.shouldConnectTo(state, dir)}. */
     private static boolean shouldConnectTo(int st, int dir) {
         if (isWire(st)) return true;
         if (isRepeater(st)) return facing(st) == dir || facing(st) == (dir ^ 1);
+        if (kind(st) == OBSERVER) return facing(st) == dir;
         return isSignalSource(st);
     }
 
@@ -614,8 +659,16 @@ final class Redstone {
     // Diodes (DiodeBlock, RepeaterBlock)
     // =============================================================================================================
 
-    /** {@code DiodeBlock.checkTickOnNeighbor}. */
+    /** {@code DiodeBlock.checkTickOnNeighbor} / {@code ComparatorBlock.checkTickOnNeighbor}. */
     private static void checkTickOnNeighbor(Region r, int st, int x, int y, int z) {
+        if (kind(st) == COMPARATOR) {
+            if (willTickThisTick(r, x, y, z, block(st))) return;
+            int out = calculateOutputSignal(r, st, x, y, z);
+            if (out != r.comparators.get(ScheduledTicks.pack(x, y, z)) || powered(st) != shouldTurnOn(r, st, x, y, z)) {
+                scheduleTick(r, x, y, z, block(st), COMPARATOR_DELAY, shouldPrioritize(r, st, x, y, z) ? HIGH : NORMAL);
+            }
+            return;
+        }
         if (isLocked(r, st, x, y, z)) return;
         boolean powered = powered(st);
         boolean on = shouldTurnOn(r, st, x, y, z);
@@ -638,9 +691,13 @@ final class Redstone {
         }
     }
 
-    /** {@code DiodeBlock.shouldTurnOn}: {@code getInputSignal > 0}. */
+    /** {@code DiodeBlock.shouldTurnOn}: {@code getInputSignal > 0}; {@code ComparatorBlock.shouldTurnOn}. */
     private static boolean shouldTurnOn(Region r, int st, int x, int y, int z) {
-        return getInputSignal(r, st, x, y, z) > 0;
+        if (kind(st) != COMPARATOR) return getInputSignal(r, st, x, y, z) > 0;
+        int in = comparatorInputSignal(r, st, x, y, z);
+        if (in == 0) return false;
+        int side = getAlternateSignal(r, st, x, y, z);
+        return in > side || in == side && !subtract(st);
     }
 
     /** {@code DiodeBlock.getInputSignal}: signal from behind (FACING side), or the power of a wire there. */
@@ -652,33 +709,174 @@ final class Redstone {
         return Math.max(s, wirePowerOrZero(state(r, bx, by, bz)));
     }
 
-    /** {@code RepeaterBlock.isLocked}: {@code getAlternateSignal > 0}, side inputs from diodes only. */
+    /** {@code RepeaterBlock.isLocked}: {@code getAlternateSignal > 0} (side inputs from diodes only). */
     private static boolean isLocked(Region r, int st, int x, int y, int z) {
-        int f = facing(st);
-        return controlInputSignal(r, x, y, z, CW[f]) > 0 || controlInputSignal(r, x, y, z, CCW[f]) > 0;
+        return kind(st) == REPEATER && getAlternateSignal(r, st, x, y, z) > 0;
     }
 
-    /** {@code SignalGetter.getControlInputSignal(pos + dir, dir, onlyDiodes = true)}. */
-    private static int controlInputSignal(Region r, int x, int y, int z, int dir) {
+    /**
+     * {@code DiodeBlock.getAlternateSignal}: the stronger side input, clockwise then counter-clockwise of FACING;
+     * {@code sideInputDiodesOnly} is true for repeaters, false for comparators.
+     */
+    private static int getAlternateSignal(Region r, int st, int x, int y, int z) {
+        int f = facing(st);
+        boolean onlyDiodes = kind(st) == REPEATER;
+        return Math.max(controlInputSignal(r, x, y, z, CW[f], onlyDiodes), controlInputSignal(r, x, y, z, CCW[f], onlyDiodes));
+    }
+
+    /** {@code SignalGetter.getControlInputSignal(pos + dir, dir, onlyDiodes)}. */
+    private static int controlInputSignal(Region r, int x, int y, int z, int dir, boolean onlyDiodes) {
         int nx = x + OX[dir], ny = y + OY[dir], nz = z + OZ[dir];
         int st = state(r, nx, ny, nz);
-        return isRepeater(st) ? blockDirectSignal(r, st, nx, ny, nz, dir) : 0;
+        if (onlyDiodes) return isDiode(st) ? blockDirectSignal(r, st, nx, ny, nz, dir) : 0;
+        if (kind(st) == REDSTONE_BLOCK) return 15;
+        if (isWire(st)) return wirePower(st);
+        return isSignalSource(st) ? blockDirectSignal(r, st, nx, ny, nz, dir) : 0;
     }
 
-    /** {@code DiodeBlock.shouldPrioritize}: the block in front is a diode not facing the same way. */
+    /**
+     * {@code DiodeBlock.shouldPrioritize}: the block in front is a diode that does not face back into this one
+     * ({@code front.FACING != FACING.getOpposite()}).
+     */
     private static boolean shouldPrioritize(Region r, int st, int x, int y, int z) {
         int d = facing(st) ^ 1;
         int front = state(r, x + OX[d], y + OY[d], z + OZ[d]);
-        return isRepeater(front) && facing(front) != facing(st);
+        return isDiode(front) && facing(front) != d;
     }
 
-    /** {@code DiodeBlock.updateNeighborsInFront}. */
+    /** {@code DiodeBlock.updateNeighborsInFront} (= {@code ObserverBlock.updateNeighborsInFront}). */
     private static void updateNeighborsInFront(Region r, int st, int x, int y, int z) {
         int f = facing(st);
         int d = f ^ 1;
         int fx = x + OX[d], fy = y + OY[d], fz = z + OZ[d];
         neighborChangedAt(r, fx, fy, fz);
         updateNeighborsAt(r, fx, fy, fz, f);
+    }
+
+    // =============================================================================================================
+    // Comparators (ComparatorBlock, ComparatorBlockEntity)
+    // =============================================================================================================
+
+    /** {@code ComparatorBlock.getOutputSignal}: the block entity's output (another region's, read shared). */
+    private static int comparatorOutput(Region r, int x, int y, int z) {
+        long pos = ScheduledTicks.pack(x, y, z);
+        int owner = r.world.ownerOfBlock(x, z);
+        return owner == r.id ? r.comparators.get(pos) : r.world.regions[owner].comparators.getShared(pos);
+    }
+
+    /**
+     * {@code ComparatorBlock.getInputSignal}: the diode input, replaced by the analog output of the block behind, or,
+     * through a conductor below 15, by the analog output of the block behind that (item frames: not ported).
+     */
+    private static int comparatorInputSignal(Region r, int st, int x, int y, int z) {
+        int in = getInputSignal(r, st, x, y, z);
+        int d = facing(st);
+        int bx = x + OX[d], by = y + OY[d], bz = z + OZ[d];
+        int behind = state(r, bx, by, bz);
+        int analog = analogOutput(behind);
+        if (analog >= 0) return analog;
+        if (in < 15 && isConductor(behind)) {
+            int further = analogOutput(state(r, bx + OX[d], by + OY[d], bz + OZ[d]));
+            if (further >= 0) return further;
+        }
+        return in;
+    }
+
+    /** {@code ComparatorBlock.calculateOutputSignal}. */
+    private static int calculateOutputSignal(Region r, int st, int x, int y, int z) {
+        int in = comparatorInputSignal(r, st, x, y, z);
+        if (in == 0) return 0;
+        int side = getAlternateSignal(r, st, x, y, z);
+        if (side > in) return 0;
+        return subtract(st) ? in - side : in;
+    }
+
+    /** {@code ComparatorBlock.refreshOutputState} (its scheduled tick, and after a mode change). */
+    private static void refreshOutputState(Region r, int st, int x, int y, int z) {
+        int out = calculateOutputSignal(r, st, x, y, z);
+        long pos = ScheduledTicks.pack(x, y, z);
+        int was = r.comparators.get(pos);
+        r.comparators.set(pos, out);
+        if (was != out || !subtract(st)) {
+            boolean on = shouldTurnOn(r, st, x, y, z);
+            boolean powered = powered(st);
+            if (powered && !on) setBlock(r, x, y, z, withPowered(st, false), UPDATE_CLIENTS);
+            else if (!powered && on) setBlock(r, x, y, z, withPowered(st, true), UPDATE_CLIENTS);
+            updateNeighborsInFront(r, st, x, y, z);
+        }
+    }
+
+    // =============================================================================================================
+    // Observers (ObserverBlock)
+    // =============================================================================================================
+
+    /** {@code ObserverBlock.tick}: a 2-tick pulse, then a neighbour update in front either way. */
+    private static void observerTick(Region r, int st, int x, int y, int z) {
+        if (powered(st)) {
+            setBlock(r, x, y, z, withPowered(st, false), UPDATE_CLIENTS);
+        } else {
+            setBlock(r, x, y, z, withPowered(st, true), UPDATE_CLIENTS);
+            scheduleTick(r, x, y, z, block(st), OBSERVER_DELAY, NORMAL);
+        }
+        updateNeighborsInFront(r, st, x, y, z);
+    }
+
+    // =============================================================================================================
+    // Levers and buttons (LeverBlock, ButtonBlock)
+    // =============================================================================================================
+
+    /** {@code LeverBlock.updateNeighbours} / {@code ButtonBlock.updateNeighbours}: pos, then the support block. */
+    private static void updateAttachedNeighbours(Region r, int st, int x, int y, int z) {
+        int d = connected(st) ^ 1;
+        updateNeighborsAt(r, x, y, z, -1);
+        updateNeighborsAt(r, x + OX[d], y + OY[d], z + OZ[d], -1);
+    }
+
+    /** {@code ButtonBlock.tick} → {@code checkPressed} with no arrow inside: release. */
+    private static void buttonTick(Region r, int st, int x, int y, int z) {
+        if (!powered(st)) return;
+        int off = withPowered(st, false);
+        setBlock(r, x, y, z, off, UPDATE_ALL);
+        updateAttachedNeighbours(r, off, x, y, z);
+    }
+
+    /**
+     * A player uses (right-clicks, empty hand, may build) the block at pos: {@code BlockState.useWithoutItem}.
+     * Lever: {@code LeverBlock.pull}. Button: {@code ButtonBlock.press} unless already pressed. Repeater: cycle the
+     * delay (flags 3). Comparator: cycle the mode (flags 2), then {@code refreshOutputState}. Returns whether the
+     * block reacted. Only for positions this region owns.
+     */
+    static boolean use(Region r, int x, int y, int z) {
+        int st = r.world.blocks.get(x, y, z);
+        switch (kind(st)) {
+            case LEVER -> {
+                int pulled = withPowered(st, !powered(st));
+                setBlock(r, x, y, z, pulled, UPDATE_ALL);
+                updateAttachedNeighbours(r, pulled, x, y, z);
+                return true;
+            }
+            case BUTTON -> {
+                if (powered(st)) return true; // InteractionResult.CONSUME
+                int pressed = withPowered(st, true);
+                setBlock(r, x, y, z, pressed, UPDATE_ALL);
+                updateAttachedNeighbours(r, pressed, x, y, z);
+                scheduleTick(r, x, y, z, block(st), pressTicks(st), NORMAL);
+                return true;
+            }
+            case REPEATER -> {
+                setBlock(r, x, y, z, useCycle(st), UPDATE_ALL);
+                return true;
+            }
+            case COMPARATOR -> {
+                int cycled = useCycle(st);
+                setBlock(r, x, y, z, cycled, UPDATE_CLIENTS);
+                refreshOutputState(r, cycled, x, y, z);
+                return true;
+            }
+            default -> {
+                return false;
+            }
+        }
     }
 
     // =============================================================================================================
@@ -804,6 +1002,9 @@ final class Redstone {
             r.scheduledTicks++;
             switch (kind(st)) {
                 case REPEATER -> diodeTick(r, st, x, y, z);
+                case COMPARATOR -> refreshOutputState(r, st, x, y, z); // ComparatorBlock.tick
+                case OBSERVER -> observerTick(r, st, x, y, z);
+                case BUTTON -> buttonTick(r, st, x, y, z);
                 case TORCH, WALL_TORCH -> torchTick(r, st, x, y, z);
                 case LAMP -> lampTick(r, st, x, y, z);
                 case FALLING -> fallingTick(r, st, x, y, z);

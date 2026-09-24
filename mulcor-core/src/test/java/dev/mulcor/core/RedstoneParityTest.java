@@ -25,12 +25,19 @@ import org.junit.jupiter.params.provider.ValueSource;
  * repeater delays, locking and pulse extension, torch inversion and burnout, lamp delays, TNT priming and fuse.
  *
  * <p>The scenarios sit inside one region, where Mulcor runs vanilla's update order exactly.
+ *
+ * <p>{@link #matchesDerivedTrace} runs the {@code redstone/derived/*.trace} scenarios (comparators, observers,
+ * levers, buttons, repeater use) the same way. Their rows were worked out from the vanilla source, not recorded on a
+ * server; they pin the port's behaviour until an oracle recording replaces them.
  */
 class RedstoneParityTest {
     /** Scenario origin: inside one 32-block cell, clear of region borders for the scenario extent. */
     private static final int OX = 66, OZ = 66;
     /** The area the oracle cleared: x in [-2, 24], z in [-2, 12], y in [0, 6]; stone floor at y = -1. */
     private static final int EX = 24, EY = 6, EZ = 12;
+
+    /** Action marker for a {@code use} line. */
+    private static final String USE = "!use";
 
     record Trace(List<String[]> build, Map<Integer, List<String[]>> actions, Map<String, int[]> probes,
                  Map<Integer, Map<String, String>> rows, int end) {}
@@ -39,6 +46,16 @@ class RedstoneParityTest {
     @ValueSource(strings = {"wire_line", "wire_sides", "lamp", "torch_inverter", "repeater_delays", "repeater_lock",
             "repeater_pulses", "torch_burnout", "tnt"})
     void matchesVanillaTrace(String name) throws IOException {
+        run(name);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"lever", "buttons", "observer", "comparator", "repeater_use"})
+    void matchesDerivedTrace(String name) throws IOException {
+        run("derived/" + name);
+    }
+
+    private static void run(String name) throws IOException {
         Trace tr = load(name);
         try (var e = new Engine(small().pillarDensity(0).chestsPerCell(0).build())) {
             int oy = e.world.surfaceY;
@@ -55,7 +72,8 @@ class RedstoneParityTest {
             Map<String, String> expected = new LinkedHashMap<>();
             for (int t = 0; t <= tr.end; t++) {
                 for (String[] a : tr.actions.getOrDefault(t, List.of())) {
-                    e.setBlockCommand(OX + i(a[0]), oy + i(a[1]), OZ + i(a[2]), state(a[3]));
+                    if (a[3].equals(USE)) assertTrue(e.useBlockCommand(OX + i(a[0]), oy + i(a[1]), OZ + i(a[2])), "use " + String.join(" ", a));
+                    else e.setBlockCommand(OX + i(a[0]), oy + i(a[1]), OZ + i(a[2]), state(a[3]));
                 }
                 Map<String, String> row = tr.rows.get(t);
                 if (row != null) expected.putAll(row);
@@ -79,7 +97,9 @@ class RedstoneParityTest {
             case "redstone_wire" -> n + "[power=" + prop(state, block, "power") + "]";
             case "redstone_torch", "redstone_wall_torch", "redstone_lamp" -> n + "[lit=" + prop(state, block, "lit") + "]";
             case "repeater" -> n + "[powered=" + prop(state, block, "powered") + ",locked=" + prop(state, block, "locked") + "]";
-            default -> n;
+            case "comparator" -> n + "[mode=" + prop(state, block, "mode") + ",powered=" + prop(state, block, "powered") + "]";
+            case "observer", "lever" -> n + "[powered=" + prop(state, block, "powered") + "]";
+            default -> n.endsWith("_button") ? n + "[powered=" + prop(state, block, "powered") + "]" : n;
         };
     }
 
@@ -136,6 +156,7 @@ class RedstoneParityTest {
             switch (f[0]) {
                 case "build" -> build.add(new String[] {f[1], f[2], f[3], f[4]});
                 case "action" -> actions.computeIfAbsent(i(f[1]), k -> new ArrayList<>()).add(new String[] {f[2], f[3], f[4], f[5]});
+                case "use" -> actions.computeIfAbsent(i(f[1]), k -> new ArrayList<>()).add(new String[] {f[2], f[3], f[4], USE});
                 case "probe" -> probes.put(f[1], new int[] {i(f[2]), i(f[3]), i(f[4])});
                 case "row" -> {
                     Map<String, String> row = new HashMap<>();

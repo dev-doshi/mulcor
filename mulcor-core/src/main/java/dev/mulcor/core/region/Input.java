@@ -37,6 +37,11 @@ public final class Input {
     public static final int JOIN = 9;
     /** The player's connection closed: remove its entity. */
     public static final int LEAVE = 10;
+    /**
+     * Region-addressed (ENTITY ignored). X,Y,Z = block a player uses with an empty hand: pulls a lever, presses a
+     * button, cycles a repeater's delay or a comparator's mode.
+     */
+    public static final int USE_BLOCK = 11;
 
     /** POSITION flag: the record carries only rotation/ground state; X,Y,Z are ignored. */
     public static final int NO_POSITION = 1;

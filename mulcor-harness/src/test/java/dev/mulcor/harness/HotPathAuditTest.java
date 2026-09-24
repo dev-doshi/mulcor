@@ -57,6 +57,7 @@ class HotPathAuditTest {
             "dev/mulcor/core/region/Region.describeRings", "diagnostics only",
             "dev/mulcor/core/light/LightEngine.grow", "queue capacity warm-up: doubles, never shrinks",
             "dev/mulcor/core/light/LightEngine.growDec", "queue capacity warm-up: doubles, never shrinks",
+            "dev/mulcor/core/region/ComparatorOutputs.grow", "table capacity warm-up: doubles, never shrinks",
             "dev/mulcor/net/CipherCodec.write#readOnly", "documented copy of read-only buffers; never produced by Mulcor");
 
     /** Methods the walk must reach (proves the call graph is followed, not just the roots). */

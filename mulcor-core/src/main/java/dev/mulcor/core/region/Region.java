@@ -50,6 +50,8 @@ public final class Region {
     boolean inBlockTicks, blockTicksDone;
     /** {@code RedstoneTorchBlock.RECENT_TOGGLES} for the torches this region owns. */
     final TorchToggles torchToggles = new TorchToggles();
+    /** {@code ComparatorBlockEntity.output} of the comparators this region owns. */
+    final ComparatorOutputs comparators = new ComparatorOutputs();
     /** Scratch for {@link Redstone#hashSetOrder}. */
     final int[] hashOrder = new int[7], hashBucket = new int[7];
 
@@ -220,6 +222,15 @@ public final class Region {
         inBlockTicks = false;
         blockTicksDone = true;
         return Redstone.commandSetBlock(this, x, y, z, state);
+    }
+
+    /** Between ticks (driver thread): a player uses the block at pos ({@link Redstone#use}), like a use packet. */
+    public boolean useBlock(int x, int y, int z, long lastEpoch) {
+        epoch = lastEpoch;
+        gameTime = lastEpoch;
+        inBlockTicks = false;
+        blockTicksDone = true;
+        return Redstone.use(this, x, y, z);
     }
 
     // ---- sending -----------------------------------------------------------------------------------------------
@@ -480,6 +491,10 @@ public final class Region {
                     seg.get(I, off + Input.Z), seg.get(I, off + Input.A));
             return;
         }
+        if (kind == Input.USE_BLOCK) {
+            Sim.useBlock(this, seg.get(I, off + Input.X), seg.get(I, off + Input.Y), seg.get(I, off + Input.Z));
+            return;
+        }
         if (kind == Input.JOIN) {
             join(seg.get(I, off + Input.X), seg.get(I, off + Input.Y), seg.get(I, off + Input.Z), seg.get(I, off + Input.A));
             return;
@@ -547,11 +562,13 @@ public final class Region {
         moveRing(ingress, to.ingress);
         moveTicks(to);
         torchToggles.drainInto(to.torchToggles);
+        comparators.drainInto(to.comparators);
     }
 
-    /** Commit phase (region split): hand {@code to} the torch toggles of the positions it now owns. */
+    /** Commit phase (region split): hand {@code to} the torch toggles and comparator outputs it now owns. */
     public void splitInto(Region to) {
         torchToggles.moveOwned(world, to.id, to.torchToggles);
+        comparators.moveOwned(world, to.id, to.comparators);
     }
 
     /** Commit phase: hand scheduled ticks to {@code to} (merge), keeping their due epoch and priority. */

@@ -171,7 +171,7 @@ public final class World implements AutoCloseable {
         return switch (seg.get(ValueLayout.JAVA_INT, off + Input.KIND)) {
             case Input.JOIN -> ownerOfBlock(Math.floorDiv(seg.get(ValueLayout.JAVA_INT, off + Input.X), 1000),
                     Math.floorDiv(seg.get(ValueLayout.JAVA_INT, off + Input.Z), 1000));
-            case Input.SET_BLOCK -> ownerOfBlock(seg.get(ValueLayout.JAVA_INT, off + Input.X), seg.get(ValueLayout.JAVA_INT, off + Input.Z));
+            case Input.SET_BLOCK, Input.USE_BLOCK -> ownerOfBlock(seg.get(ValueLayout.JAVA_INT, off + Input.X), seg.get(ValueLayout.JAVA_INT, off + Input.Z));
             default -> ownerOfEntity(seg.get(ValueLayout.JAVA_INT, off + Input.ENTITY));
         };
     }

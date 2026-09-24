@@ -18,7 +18,19 @@ import dev.mulcor.registry.BlockId;
  *   <li>{@link #REPEATER}: bits 0-2 {@code facing} (a Direction ordinal: the INPUT side), bits 3-4 {@code delay - 1},
  *       bit 5 {@code locked}, bit 6 {@code powered}.</li>
  *   <li>{@link #TORCH}, {@link #LAMP}: bit 6 {@code lit}. {@link #WALL_TORCH}: bits 0-2 {@code facing}, bit 6 {@code lit}.</li>
+ *   <li>{@link #COMPARATOR}: bits 0-2 {@code facing} (the input side, as for repeaters), bit 5 {@code mode=subtract},
+ *       bit 6 {@code powered}.</li>
+ *   <li>{@link #OBSERVER}: bits 0-2 {@code facing} (the observed side; the output is the opposite face), bit 6
+ *       {@code powered}.</li>
+ *   <li>{@link #LEVER}, {@link #BUTTON}: bits 0-2 the connected direction
+ *       ({@code FaceAttachedHorizontalDirectionalBlock.getConnectedDirection}: UP on the floor, DOWN on the ceiling,
+ *       {@code facing} on a wall; the support is the opposite side), bit 3 a wooden button (pressed for 30 ticks
+ *       instead of 20), bit 6 {@code powered}.</li>
  * </ul>
+ *
+ * <p>{@link #analogOutput} is {@code BlockState.getAnalogOutputSignal} for the blocks whose value is a function of
+ * the state, 0 for the ones whose value lives in a block entity (containers, jukebox, lectern, ...: not ported), and
+ * -1 for blocks without {@code hasAnalogOutputSignal}.
  */
 final class RedstoneStates {
     static final int DOWN = 0, UP = 1, NORTH = 2, SOUTH = 3, WEST = 4, EAST = 5;
@@ -34,9 +46,11 @@ final class RedstoneStates {
     static final int[] CCW = {-1, -1, WEST, EAST, SOUTH, NORTH};
 
     static final int OTHER = 0, WIRE = 1, REPEATER = 2, TORCH = 3, WALL_TORCH = 4, LAMP = 5, TNT = 6,
-            REDSTONE_BLOCK = 7, FALLING = 8;
+            REDSTONE_BLOCK = 7, FALLING = 8, COMPARATOR = 9, OBSERVER = 10, LEVER = 11, BUTTON = 12;
     static final int NONE = 0, SIDE = 1, UP_SIDE = 2;
-    static final int POWERED_BIT = 1 << 6, LIT_BIT = 1 << 6, LOCKED_BIT = 1 << 5;
+    static final int POWERED_BIT = 1 << 6, LIT_BIT = 1 << 6, LOCKED_BIT = 1 << 5, SUBTRACT_BIT = 1 << 5, WOODEN_BIT = 1 << 3;
+    /** {@code ButtonBlock.ticksToStayPressed}: stone and polished blackstone buttons, wooden buttons. */
+    static final int STONE_PRESS_TICKS = 20, WOODEN_PRESS_TICKS = 30;
 
     private static final byte[] KIND;
     private static final int[] INFO;
@@ -45,6 +59,11 @@ final class RedstoneStates {
     /** Repeater state for {@code facing << 5 | (delay-1) << 3 | locked << 1 | powered} (facing a Direction ordinal). */
     private static final int[] REPEATER_STATE = new int[6 << 5];
     private static final int[] WALL_TORCH_STATE = new int[6 << 1];
+    /** The state with {@code powered} flipped (comparator, observer, lever, button), else the state itself. */
+    private static final int[] TOGGLE_POWERED;
+    /** {@code state.cycle(...)} of the property a player's use cycles: repeater {@code delay}, comparator {@code mode}. */
+    private static final int[] USE_CYCLE;
+    private static final byte[] ANALOG;
     static final int TORCH_ON, TORCH_OFF, LAMP_ON, LAMP_OFF, AIR = 0;
     /** Blocks the wire logic singles out: {@code HOPPER} (wire survives on it), trapdoors (wire climbs them). */
     private static final boolean[] TRAPDOOR_BLOCK;
@@ -55,6 +74,14 @@ final class RedstoneStates {
         int states = BlockData.firstState(blocks - 1) + BlockData.stateCount(blocks - 1);
         KIND = new byte[states];
         INFO = new int[states];
+        TOGGLE_POWERED = new int[states];
+        USE_CYCLE = new int[states];
+        ANALOG = new byte[states];
+        for (int s = 0; s < states; s++) {
+            TOGGLE_POWERED[s] = s;
+            USE_CYCLE[s] = s;
+            ANALOG[s] = -1;
+        }
         TRAPDOOR_BLOCK = new boolean[blocks];
         for (int b = 0; b < blocks; b++) TRAPDOOR_BLOCK[b] = BlockData.name(b).endsWith("_trapdoor");
 
@@ -85,7 +112,56 @@ final class RedstoneStates {
             KIND[s] = REPEATER;
             INFO[s] = facing | delay << 3 | locked << 5 | powered << 6;
             REPEATER_STATE[facing << 5 | delay << 3 | locked << 1 | powered] = s;
+            USE_CYCLE[s] = BlockData.withInt(s, pDelay, delay == 3 ? 1 : delay + 2);
         }
+
+        // Comparator: facing, mode, powered.
+        int cmp = BlockId.COMPARATOR;
+        int pcFacing = BlockData.property(cmp, "facing"), pMode = BlockData.property(cmp, "mode");
+        int pcPowered = BlockData.property(cmp, "powered");
+        for (int s = BlockData.firstState(cmp), n = s + BlockData.stateCount(cmp); s < n; s++) {
+            int facing = direction(BlockData.valueName(pcFacing, BlockData.get(s, pcFacing)));
+            boolean subtract = BlockData.valueName(pMode, BlockData.get(s, pMode)).equals("subtract");
+            boolean powered = BlockData.boolValue(s, pcPowered);
+            KIND[s] = COMPARATOR;
+            INFO[s] = facing | (subtract ? SUBTRACT_BIT : 0) | (powered ? POWERED_BIT : 0);
+            TOGGLE_POWERED[s] = BlockData.withBool(s, pcPowered, !powered);
+            USE_CYCLE[s] = BlockData.with(s, pMode, (BlockData.get(s, pMode) + 1) % BlockData.valueCount(pMode));
+        }
+
+        // Observer: facing, powered.
+        int obs = BlockId.OBSERVER;
+        int poFacing = BlockData.property(obs, "facing"), poPowered = BlockData.property(obs, "powered");
+        for (int s = BlockData.firstState(obs), n = s + BlockData.stateCount(obs); s < n; s++) {
+            int facing = direction(BlockData.valueName(poFacing, BlockData.get(s, poFacing)));
+            boolean powered = BlockData.boolValue(s, poPowered);
+            KIND[s] = OBSERVER;
+            INFO[s] = facing | (powered ? POWERED_BIT : 0);
+            TOGGLE_POWERED[s] = BlockData.withBool(s, poPowered, !powered);
+        }
+
+        // Lever and buttons: face, facing, powered.
+        for (int b = 0; b < blocks; b++) {
+            String name = BlockData.name(b);
+            boolean lever = b == BlockId.LEVER, button = name.endsWith("_button");
+            if (!lever && !button) continue;
+            boolean wooden = button && !name.equals("minecraft:stone_button") && !name.equals("minecraft:polished_blackstone_button");
+            int pFace = BlockData.property(b, "face"), pbFacing = BlockData.property(b, "facing");
+            int pbPowered = BlockData.property(b, "powered");
+            for (int s = BlockData.firstState(b), n = s + BlockData.stateCount(b); s < n; s++) {
+                int conn = switch (BlockData.valueName(pFace, BlockData.get(s, pFace))) {
+                    case "floor" -> UP;
+                    case "ceiling" -> DOWN;
+                    default -> direction(BlockData.valueName(pbFacing, BlockData.get(s, pbFacing)));
+                };
+                boolean powered = BlockData.boolValue(s, pbPowered);
+                KIND[s] = (byte) (lever ? LEVER : BUTTON);
+                INFO[s] = conn | (wooden ? WOODEN_BIT : 0) | (powered ? POWERED_BIT : 0);
+                TOGGLE_POWERED[s] = BlockData.withBool(s, pbPowered, !powered);
+            }
+        }
+
+        analogOutputs(blocks);
 
         int torch = BlockId.REDSTONE_TORCH, pLit = BlockData.property(torch, "lit");
         int on = BlockData.withBool(BlockData.defaultState(torch), pLit, true);
@@ -121,6 +197,36 @@ final class RedstoneStates {
     }
 
     private RedstoneStates() {}
+
+    /** {@code getAnalogOutputSignal} of the blocks that have one ({@code hasAnalogOutputSignal}). */
+    private static void analogOutputs(int blocks) {
+        for (int b = 0; b < blocks; b++) {
+            String name = BlockData.name(b);
+            if (name.startsWith("minecraft:")) name = name.substring(10);
+            int first = BlockData.firstState(b), n = first + BlockData.stateCount(b);
+            for (int s = first; s < n; s++) {
+                int v = switch (name) {
+                    // CakeBlock.getOutputSignal: (7 - bites) * 2; CandleCakeBlock: CakeBlock.FULL_CAKE_SIGNAL.
+                    case "cake" -> (7 - BlockData.intValue(s, BlockData.property(b, "bites"))) * 2;
+                    case "composter" -> BlockData.intValue(s, BlockData.property(b, "level"));
+                    case "water_cauldron", "powder_snow_cauldron" -> BlockData.intValue(s, BlockData.property(b, "level"));
+                    case "lava_cauldron" -> 3;
+                    case "cauldron" -> 0;
+                    case "end_portal_frame" -> BlockData.boolValue(s, BlockData.property(b, "eye")) ? 15 : 0;
+                    case "beehive", "bee_nest" -> BlockData.intValue(s, BlockData.property(b, "honey_level"));
+                    // RespawnAnchorBlock.getScaledChargeLevel(state, 15): floor(charges / 4 * 15).
+                    case "respawn_anchor" -> (int) Math.floor(BlockData.intValue(s, BlockData.property(b, "charges")) / 4.0f * 15f);
+                    // Block-entity backed: the value is not ported, but the block still has an analog output.
+                    case "chest", "trapped_chest", "barrel", "hopper", "dispenser", "dropper", "furnace", "blast_furnace",
+                         "smoker", "brewing_stand", "jukebox", "lectern", "chiseled_bookshelf", "decorated_pot", "crafter",
+                         "command_block", "chain_command_block", "repeating_command_block", "sculk_sensor",
+                         "calibrated_sculk_sensor" -> 0;
+                    default -> name.endsWith("candle_cake") ? 14 : name.endsWith("shulker_box") ? 0 : -1;
+                };
+                ANALOG[s] = (byte) v;
+            }
+        }
+    }
 
     private static int[] sideValueMap(int property) {
         int[] m = new int[BlockData.valueCount(property)];
@@ -186,6 +292,17 @@ final class RedstoneStates {
     static int repeaterState(int facing, int delay, boolean locked, boolean powered) {
         return REPEATER_STATE[facing << 5 | (delay - 1) << 3 | (locked ? 2 : 0) | (powered ? 1 : 0)];
     }
+
+    static boolean isDiode(int state) { return KIND[state] == REPEATER || KIND[state] == COMPARATOR; }
+    static boolean subtract(int state) { return (INFO[state] & SUBTRACT_BIT) != 0; }
+    /** Comparator, observer, lever, button: the state with {@code powered} set to {@code p}. */
+    static int withPowered(int state, boolean p) { return powered(state) == p ? state : TOGGLE_POWERED[state]; }
+    static int useCycle(int state) { return USE_CYCLE[state]; }
+    /** Lever, button: the connected direction (the support is on the opposite side). */
+    static int connected(int state) { return INFO[state] & 7; }
+    static int pressTicks(int state) { return (INFO[state] & WOODEN_BIT) != 0 ? WOODEN_PRESS_TICKS : STONE_PRESS_TICKS; }
+    /** {@code getAnalogOutputSignal}, or -1 without {@code hasAnalogOutputSignal}. */
+    static int analogOutput(int state) { return ANALOG[state]; }
 
     static boolean lit(int state) { return (INFO[state] & LIT_BIT) != 0; }
     static int wallTorchState(int facing, boolean lit) { return WALL_TORCH_STATE[facing << 1 | (lit ? 1 : 0)]; }

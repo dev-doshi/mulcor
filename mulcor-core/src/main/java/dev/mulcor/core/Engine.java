@@ -151,6 +151,15 @@ public final class Engine implements AutoCloseable {
         return world.regions[world.ownerOfBlock(x, z)].commandSetBlock(x, y, z, state, epoch);
     }
 
+    /**
+     * Between ticks: a player uses the block at pos with an empty hand (lever, button, repeater, comparator), as
+     * vanilla handles a use packet between ticks. Returns whether the block reacted.
+     */
+    public boolean useBlockCommand(int x, int y, int z) {
+        if (!world.blocks.inBounds(x, y, z)) return false;
+        return world.regions[world.ownerOfBlock(x, z)].useBlock(x, y, z, epoch);
+    }
+
     public void run(int ticks) {
         for (int i = 0; i < ticks; i++) tick();
     }

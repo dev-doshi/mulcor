@@ -1,0 +1,16 @@
+# DERIVED, NOT RECORDED: expected rows worked out tick by tick from the vanilla 26.2 source (see Redstone.java),
+# not captured from a vanilla server. Re-record on a real server with the oracle before treating these as golden.
+# Format as in ../*.trace, plus "use t x y z": a player uses the block (empty hand) between tick t and t+1.
+# Three uses cycle the repeater from delay 1 to delay 4 (8 game ticks).
+build 0 0 0 lever[face=floor,facing=north]
+build 1 0 0 repeater[facing=west,delay=1]
+build 2 0 0 redstone_lamp
+use 0 1 0 0
+use 0 1 0 0
+use 0 1 0 0
+use 1 0 0 0
+probe rep 1 0 0
+probe lamp 2 0 0
+row 0 rep=repeater[powered=false,locked=false] lamp=redstone_lamp[lit=false] primed_tnt=0
+row 9 rep=repeater[powered=true,locked=false] lamp=redstone_lamp[lit=true]
+end 12

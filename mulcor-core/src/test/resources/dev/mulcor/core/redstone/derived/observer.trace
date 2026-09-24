@@ -1,0 +1,15 @@
+# DERIVED, NOT RECORDED: expected rows worked out tick by tick from the vanilla 26.2 source (see Redstone.java),
+# not captured from a vanilla server. Re-record on a real server with the oracle before treating these as golden.
+# Format as in ../*.trace, plus "use t x y z": a player uses the block (empty hand) between tick t and t+1.
+# Built powered: ObserverBlock.onPlace turns it off at once without a pulse (a /setblock of an unpowered observer
+# pulses, because Block.updateFromNeighbourShapes runs its updateShape toward the observed side).
+build 0 0 1 observer[facing=north,powered=true]
+build 0 0 2 redstone_lamp
+action 0 0 0 0 stone
+probe obs 0 0 1
+probe lamp 0 0 2
+row 0 obs=observer[powered=false] lamp=redstone_lamp[lit=false] primed_tnt=0
+row 2 obs=observer[powered=true] lamp=redstone_lamp[lit=true]
+row 4 obs=observer[powered=false]
+row 8 lamp=redstone_lamp[lit=false]
+end 12

@@ -1,0 +1,28 @@
+# DERIVED, NOT RECORDED: expected rows worked out tick by tick from the vanilla 26.2 source (see Redstone.java),
+# not captured from a vanilla server. Re-record on a real server with the oracle before treating these as golden.
+# Format as in ../*.trace, plus "use t x y z": a player uses the block (empty hand) between tick t and t+1.
+# Input: a cake behind (analog 14). Side: a wire line fed from the south. Output: a two-wire line.
+build 1 0 0 comparator[facing=west]
+build 2 0 0 redstone_wire
+build 3 0 0 redstone_wire
+build 1 0 1 redstone_wire
+build 1 0 2 redstone_wire
+action 0 0 0 0 cake
+action 4 1 0 3 redstone_block
+use 6 1 0 0
+action 8 1 0 3 air
+action 12 1 0 3 redstone_wire
+action 12 1 0 4 redstone_block
+probe cmp 1 0 0
+probe w2 2 0 0
+probe w3 3 0 0
+probe side 1 0 1
+row 0 cmp=comparator[mode=compare,powered=false] w2=redstone_wire[power=0] w3=redstone_wire[power=0] side=redstone_wire[power=0] primed_tnt=0
+row 2 cmp=comparator[mode=compare,powered=true] w2=redstone_wire[power=14] w3=redstone_wire[power=13]
+row 4 side=redstone_wire[power=14]
+row 6 cmp=comparator[mode=subtract,powered=false] w2=redstone_wire[power=0] w3=redstone_wire[power=0]
+row 8 side=redstone_wire[power=0]
+row 10 cmp=comparator[mode=subtract,powered=true] w2=redstone_wire[power=14] w3=redstone_wire[power=13]
+row 12 side=redstone_wire[power=13]
+row 14 w2=redstone_wire[power=1] w3=redstone_wire[power=0]
+end 18

@@ -325,4 +325,10 @@ final class Sim {
         if (r.world.ownerOfBlock(x, z) != r.id || !r.world.blocks.inBounds(x, y, z)) return;
         Redstone.commandSetBlock(r, x, y, z, state);
     }
+
+    /** USE_BLOCK input: a player uses a block this region owns (see {@link Redstone#use}). */
+    static void useBlock(Region r, int x, int y, int z) {
+        if (r.world.ownerOfBlock(x, z) != r.id || !r.world.blocks.inBounds(x, y, z)) return;
+        Redstone.use(r, x, y, z);
+    }
 }
