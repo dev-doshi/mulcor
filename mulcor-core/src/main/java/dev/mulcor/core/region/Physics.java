@@ -207,9 +207,8 @@ final class Physics {
         r.despawn(s);
         boolean replaceable = b.inBounds(x, y, z) && b.get(x, y, z) == Blocks.AIR;
         boolean belowFree = b.getShared(x, y - 1, z) == Blocks.AIR; // FallingBlock.isFree for Mulcor's blocks
-        if (replaceable && !belowFree && r.setBlock(x, y, z, block) != BlockStorage.FAILED) {
-            Redstone.blockChanged(r, x, y, z);
-        } else {
+        // FallingBlockEntity.tick: level.setBlock(pos, blockState, 3) where it lands
+        if (!(replaceable && !belowFree && Redstone.setBlock(r, x, y, z, block, Redstone.UPDATE_ALL))) {
             r.droppedItems++; // breaks and drops as an item
         }
         return true;

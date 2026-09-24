@@ -1,0 +1,42 @@
+# Vanilla 26.2 trace 'repeater_pulses', recorded on a real server (/tick freeze + /tick step 1, RCON probes).
+# Coordinates relative to the scenario origin; y=0 is the first air layer above a stone floor.
+# build: /setblock before t=0 (then 4 ticks settle); action t: /setblock between tick t and t+1 (before
+# the t row is probed); row t: probed states after t ticks (only changes after the first row).
+build 1 0 0 repeater[facing=west,delay=1]
+build 2 0 0 redstone_lamp
+build 1 0 2 repeater[facing=west,delay=1]
+build 2 0 2 redstone_lamp
+build 1 0 4 repeater[facing=west,delay=4]
+build 2 0 4 redstone_lamp
+build 1 0 6 repeater[facing=west,delay=4]
+build 2 0 6 redstone_lamp
+build 1 0 8 repeater[facing=west,delay=2]
+build 2 0 8 redstone_lamp
+action 0 0 0 0 redstone_block
+action 1 0 0 0 air
+action 0 0 0 2 redstone_block
+action 2 0 0 2 air
+action 0 0 0 4 redstone_block
+action 1 0 0 4 air
+action 0 0 0 6 redstone_block
+action 2 0 0 6 air
+action 0 0 0 8 redstone_block
+action 3 0 0 8 air
+probe r1p1 1 0 0
+probe lamp1p1 2 0 0
+probe r1p2 1 0 2
+probe lamp1p2 2 0 2
+probe r4p1 1 0 4
+probe lamp4p1 2 0 4
+probe r4p2 1 0 6
+probe lamp4p2 2 0 6
+probe r2p3 1 0 8
+probe lamp2p3 2 0 8
+row 0 r1p1=repeater[powered=false,locked=false] lamp1p1=redstone_lamp[lit=false] r1p2=repeater[powered=false,locked=false] lamp1p2=redstone_lamp[lit=false] r4p1=repeater[powered=false,locked=false] lamp4p1=redstone_lamp[lit=false] r4p2=repeater[powered=false,locked=false] lamp4p2=redstone_lamp[lit=false] r2p3=repeater[powered=false,locked=false] lamp2p3=redstone_lamp[lit=false] primed_tnt=0
+row 2 r1p1=repeater[powered=true,locked=false] lamp1p1=redstone_lamp[lit=true] r1p2=repeater[powered=true,locked=false] lamp1p2=redstone_lamp[lit=true]
+row 4 r1p1=repeater[powered=false,locked=false] r1p2=repeater[powered=false,locked=false] r2p3=repeater[powered=true,locked=false] lamp2p3=redstone_lamp[lit=true]
+row 8 lamp1p1=redstone_lamp[lit=false] lamp1p2=redstone_lamp[lit=false] r4p1=repeater[powered=true,locked=false] lamp4p1=redstone_lamp[lit=true] r4p2=repeater[powered=true,locked=false] lamp4p2=redstone_lamp[lit=true] r2p3=repeater[powered=false,locked=false]
+row 12 lamp2p3=redstone_lamp[lit=false]
+row 16 r4p1=repeater[powered=false,locked=false] r4p2=repeater[powered=false,locked=false]
+row 20 lamp4p1=redstone_lamp[lit=false] lamp4p2=redstone_lamp[lit=false]
+end 20

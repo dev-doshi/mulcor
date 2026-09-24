@@ -272,18 +272,19 @@ final class Explosion {
         BlockStorage b = r.world.blocks;
         int st = b.get(x, y, z);
         if (st == Blocks.AIR) return;
-        r.setBlock(x, y, z, Blocks.AIR);
-        if (st == Blocks.TNT) {
+        // Block.onExplosionHit: drops, level.setBlock(pos, AIR, 3), then block.wasExploded
+        if (st == Blocks.CHEST) r.droppedItems += r.world.destroyChestAt(x, y, z);
+        Redstone.setBlock(r, x, y, z, Blocks.AIR, Redstone.UPDATE_ALL);
+        if (dev.mulcor.registry.BlockData.block(st) == dev.mulcor.registry.BlockId.TNT) {
+            // TntBlock.wasExploded: primed with getRandomShortFuse(80) = nextInt(20) + 10
             long hh = Rng.mix(seed, dev.mulcor.memory.ScheduledTicks.pack(x, y, z), 7);
             Sim.spawnTnt(r, x + 0.5, y, z + 0.5, 10 + Rng.bounded(hh, 20), hh);
             r.tntPrimed++;
         } else if (Blocks.isMineable(st)) {
             r.destroyedBlocks++;
         } else {
-            if (st == Blocks.CHEST) r.droppedItems += r.world.destroyChestAt(x, y, z);
             r.destroyedOther++;
         }
-        Redstone.blockChanged(r, x, y, z);
     }
 
     /** Uniform float in [0, 1) with 24 random bits, like {@code RandomSource.nextFloat()}; one per ray. */

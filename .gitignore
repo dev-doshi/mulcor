@@ -31,3 +31,6 @@ jmh-result*.json
 # OS / local tooling
 .DS_Store
 .claude/
+build/
+.gradle/
+.idea/

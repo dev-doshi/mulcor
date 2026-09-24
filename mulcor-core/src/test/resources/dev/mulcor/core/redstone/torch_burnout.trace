@@ -1,0 +1,34 @@
+# Vanilla 26.2 trace 'torch_burnout', recorded on a real server (/tick freeze + /tick step 1, RCON probes).
+# Coordinates relative to the scenario origin; y=0 is the first air layer above a stone floor.
+# build: /setblock before t=0 (then 4 ticks settle); action t: /setblock between tick t and t+1 (before
+# the t row is probed); row t: probed states after t ticks (only changes after the first row).
+build 0 0 0 stone
+build 1 0 0 stone
+build 1 1 0 redstone_wire
+build 2 0 0 redstone_wire
+build 2 0 1 redstone_wire
+build 2 0 2 redstone_wire
+build 1 0 2 redstone_wire
+build 0 0 2 redstone_wire
+build 0 0 1 redstone_wire
+action 0 0 1 0 redstone_torch
+probe torch 0 1 0
+probe w_in 0 0 1
+probe w_top 1 1 0
+row 0 torch=redstone_torch[lit=true] w_in=redstone_wire[power=9] w_top=redstone_wire[power=15] primed_tnt=0
+row 2 torch=redstone_torch[lit=false] w_in=redstone_wire[power=0] w_top=redstone_wire[power=0]
+row 4 torch=redstone_torch[lit=true] w_in=redstone_wire[power=9] w_top=redstone_wire[power=15]
+row 6 torch=redstone_torch[lit=false] w_in=redstone_wire[power=0] w_top=redstone_wire[power=0]
+row 8 torch=redstone_torch[lit=true] w_in=redstone_wire[power=9] w_top=redstone_wire[power=15]
+row 10 torch=redstone_torch[lit=false] w_in=redstone_wire[power=0] w_top=redstone_wire[power=0]
+row 12 torch=redstone_torch[lit=true] w_in=redstone_wire[power=9] w_top=redstone_wire[power=15]
+row 14 torch=redstone_torch[lit=false] w_in=redstone_wire[power=0] w_top=redstone_wire[power=0]
+row 16 torch=redstone_torch[lit=true] w_in=redstone_wire[power=9] w_top=redstone_wire[power=15]
+row 18 torch=redstone_torch[lit=false] w_in=redstone_wire[power=0] w_top=redstone_wire[power=0]
+row 20 torch=redstone_torch[lit=true] w_in=redstone_wire[power=9] w_top=redstone_wire[power=15]
+row 22 torch=redstone_torch[lit=false] w_in=redstone_wire[power=0] w_top=redstone_wire[power=0]
+row 24 torch=redstone_torch[lit=true] w_in=redstone_wire[power=9] w_top=redstone_wire[power=15]
+row 26 torch=redstone_torch[lit=false] w_in=redstone_wire[power=0] w_top=redstone_wire[power=0]
+row 28 torch=redstone_torch[lit=true] w_in=redstone_wire[power=9] w_top=redstone_wire[power=15]
+row 30 torch=redstone_torch[lit=false] w_in=redstone_wire[power=0] w_top=redstone_wire[power=0]
+end 240

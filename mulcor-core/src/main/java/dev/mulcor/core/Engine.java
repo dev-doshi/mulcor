@@ -141,6 +141,16 @@ public final class Engine implements AutoCloseable {
         return dt;
     }
 
+    /**
+     * Vanilla {@code /setblock x y z state} (replace mode), run between ticks on the driver thread, as the server runs
+     * commands from its task queue: at the last tick's game time, with every neighbour and shape update it causes.
+     * Updates reaching other regions run at the start of the next tick. Returns false if nothing changed.
+     */
+    public boolean setBlockCommand(int x, int y, int z, int state) {
+        if (!world.blocks.inBounds(x, y, z)) return false;
+        return world.regions[world.ownerOfBlock(x, z)].commandSetBlock(x, y, z, state, epoch);
+    }
+
     public void run(int ticks) {
         for (int i = 0; i < ticks; i++) tick();
     }
@@ -370,6 +380,7 @@ public final class Engine implements AutoCloseable {
             Region nr = regions[fresh];
             nr.casState(Region.INACTIVE, Region.IDLE);
             moveEntitiesOwnedBy(r, nr);
+            r.splitInto(nr);
             r.costEwma /= 2;
             nr.costEwma = r.costEwma;
             splits++;

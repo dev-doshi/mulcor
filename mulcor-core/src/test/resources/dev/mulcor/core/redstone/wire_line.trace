@@ -1,0 +1,32 @@
+# Vanilla 26.2 trace 'wire_line', recorded on a real server (/tick freeze + /tick step 1, RCON probes).
+# Coordinates relative to the scenario origin; y=0 is the first air layer above a stone floor.
+# build: /setblock before t=0 (then 4 ticks settle); action t: /setblock between tick t and t+1 (before
+# the t row is probed); row t: probed states after t ticks (only changes after the first row).
+build 1 0 0 redstone_wire
+build 2 0 0 redstone_wire
+build 3 0 0 redstone_wire
+build 4 0 0 redstone_wire
+build 5 0 0 redstone_wire
+build 6 0 0 redstone_wire
+build 7 0 0 redstone_wire
+build 8 0 0 redstone_wire
+build 9 0 0 redstone_wire
+build 10 0 0 redstone_wire
+build 11 0 0 redstone_wire
+build 12 0 0 redstone_wire
+build 13 0 0 redstone_wire
+build 14 0 0 redstone_wire
+build 15 0 0 redstone_wire
+build 16 0 0 redstone_wire
+build 17 0 0 redstone_wire
+action 0 0 0 0 redstone_block
+action 5 0 0 0 air
+probe w1 1 0 0
+probe w2 2 0 0
+probe w8 8 0 0
+probe w15 15 0 0
+probe w16 16 0 0
+probe w17 17 0 0
+row 0 w1=redstone_wire[power=15] w2=redstone_wire[power=14] w8=redstone_wire[power=8] w15=redstone_wire[power=1] w16=redstone_wire[power=0] w17=redstone_wire[power=0] primed_tnt=0
+row 5 w1=redstone_wire[power=0] w2=redstone_wire[power=0] w8=redstone_wire[power=0] w15=redstone_wire[power=0]
+end 8

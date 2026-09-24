@@ -36,12 +36,22 @@ public final class Region {
     private final OffHeapRing[] inbox = new OffHeapRing[2];
     public final OffHeapRing ingress;
     private final OffHeapRing overflow;
-    final OffHeapRing updates;
     /** Scheduled block ticks (repeaters, torches, lamps, falling sand), ordered like vanilla's tick list. */
     final ScheduledTicks blockTicks;
     final MemorySegment scratch;
-    /** Block evaluations left in this tick (see {@link Redstone#UPDATE_BUDGET}). */
-    int updateBudget;
+
+    // Vanilla block updates (see Redstone): the depth-first neighbour/shape updater and its per-tick context.
+    final NeighborUpdater updater = new NeighborUpdater();
+    /** {@code RedStoneWireBlock.shouldSignal}: off while a wire computes the power it receives from non-wires. */
+    boolean shouldSignal = true;
+    /** Vanilla {@code level.getGameTime()} for the code running now (see {@link Redstone}, "Time"). */
+    long gameTime;
+    /** In the block-tick phase ({@code willTickThisTick} can be true) / past it (ticks scheduled now run next epoch). */
+    boolean inBlockTicks, blockTicksDone;
+    /** {@code RedstoneTorchBlock.RECENT_TOGGLES} for the torches this region owns. */
+    final TorchToggles torchToggles = new TorchToggles();
+    /** Scratch for {@link Redstone#hashSetOrder}. */
+    final int[] hashOrder = new int[7], hashBucket = new int[7];
 
     // Spatial hash for pushing, rebuilt each tick without allocation (stamped buckets).
     static final int GRID_BITS = 12;
@@ -105,7 +115,6 @@ public final class Region {
         this.inbox[1] = new OffHeapRing(mem, cfg.inboxCapacity(), Msg.BYTES);
         this.ingress = new OffHeapRing(mem, cfg.ingressCapacity(), Input.BYTES);
         this.overflow = new OffHeapRing(mem, cfg.inboxCapacity(), Msg.BYTES);
-        this.updates = new OffHeapRing(mem, 16384, 16);
         this.blockTicks = new ScheduledTicks(mem, 16384);
         this.gridNext = new int[cfg.regionEntityCapacity()];
         this.gridCellX = new int[cfg.regionEntityCapacity()];
@@ -183,15 +192,18 @@ public final class Region {
         }
         this.epoch = epoch;
         this.ai = aiEnabled;
-        updateBudget = Redstone.UPDATE_BUDGET;
+        // Between ticks (vanilla: the server task queue): cross-border updates carry their sender's game time;
+        // inputs run at the previous tick's game time, like commands and player packets. Updates run to completion
+        // where they are triggered (Redstone's depth-first updater), so there is no separate cascade phase.
+        gameTime = epoch - 1;
+        inBlockTicks = false;
+        blockTicksDone = false;
         retryOverflow();
         messages += inbox(epoch - 1).drain(onMessage, Integer.MAX_VALUE);
         ingress.drain(onInput, cfg.ingressBudget());
-        Redstone.processUpdates(this);   // cascades from last epoch's cross-border updates and this tick's input
-        Redstone.runScheduled(this);     // due block ticks, each followed by its cascade
+        Redstone.runScheduled(this);     // ServerLevel.tick: block ticks at gameTime = epoch
         Physics.pushAll(this);           // entity pushing (momentum transfer), from start-of-tick positions
-        Sim.simulate(this);              // AI, physics, TNT, falling blocks
-        Redstone.processUpdates(this);   // cascades caused by entities (explosions, landing sand)
+        Sim.simulate(this);              // entities: AI, physics, TNT, falling blocks
         Physics.publishSnapshot(this);
         long dt = System.nanoTime() - t0;
         lastTickNanos = dt;
@@ -199,6 +211,15 @@ public final class Region {
         samples[(int) (sampleCount++ & sampleMask)] = dt;
         ticks++;
         if (!casState(RUNNING, IDLE)) stateViolations++;
+    }
+
+    /** See {@link dev.mulcor.core.Engine#setBlockCommand}. Between ticks only (the driver owns every region then). */
+    public boolean commandSetBlock(int x, int y, int z, int state, long lastEpoch) {
+        epoch = lastEpoch;
+        gameTime = lastEpoch;
+        inBlockTicks = false;
+        blockTicksDone = true;
+        return Redstone.commandSetBlock(this, x, y, z, state);
     }
 
     // ---- sending -----------------------------------------------------------------------------------------------
@@ -524,8 +545,13 @@ public final class Region {
         moveRing(inbox(epoch - 1), to.inbox(epoch));
         moveRing(overflow, to.overflow);
         moveRing(ingress, to.ingress);
-        moveRing(updates, to.updates);
         moveTicks(to);
+        torchToggles.drainInto(to.torchToggles);
+    }
+
+    /** Commit phase (region split): hand {@code to} the torch toggles of the positions it now owns. */
+    public void splitInto(Region to) {
+        torchToggles.moveOwned(world, to.id, to.torchToggles);
     }
 
     /** Commit phase: hand scheduled ticks to {@code to} (merge), keeping their due epoch and priority. */
@@ -533,8 +559,9 @@ public final class Region {
         while (blockTicks.size() > 0) {
             long due = blockTicks.peekDue();
             int priority = blockTicks.peekPriority();
+            int block = blockTicks.peekBlock();
             long pos = blockTicks.poll();
-            if (!to.blockTicks.schedule(due, priority, pos) && !to.blockTicks.isScheduled(pos)) to.ticksDropped++;
+            if (!to.blockTicks.schedule(due, priority, pos, block) && !to.blockTicks.isScheduled(pos, block)) to.ticksDropped++;
         }
     }
 
@@ -544,9 +571,10 @@ public final class Region {
         while (blockTicks.size() > 0) {
             long due = blockTicks.peekDue();
             int priority = blockTicks.peekPriority();
+            int block = blockTicks.peekBlock();
             long pos = blockTicks.poll();
             Region to = world.regions[world.ownerOfBlock(ScheduledTicks.x(pos), ScheduledTicks.z(pos))];
-            if (to == this || (!to.blockTicks.schedule(due, priority, pos) && !to.blockTicks.isScheduled(pos))) ticksDropped++;
+            if (to == this || (!to.blockTicks.schedule(due, priority, pos, block) && !to.blockTicks.isScheduled(pos, block))) ticksDropped++;
         }
         rerouteRing(inbox(epoch));
         rerouteRing(inbox(epoch - 1));
@@ -592,13 +620,13 @@ public final class Region {
     /** Diagnostic snapshot of ring occupancy (allocates; not for the tick path). */
     public String describeRings() {
         return "region " + id + " state=" + state.get() + " inbox0=" + inbox[0].size() + " inbox1=" + inbox[1].size()
-                + " overflow=" + overflow.size() + " ingress=" + ingress.size() + " updates=" + updates.size()
+                + " overflow=" + overflow.size() + " ingress=" + ingress.size()
                 + " ticks=" + blockTicks.size()
                 + " entities=" + table.count();
     }
 
     public int pendingMessages() {
-        return inbox[0].size() + inbox[1].size() + overflow.size() + ingress.size() + updates.size();
+        return inbox[0].size() + inbox[1].size() + overflow.size() + ingress.size();
     }
 
     // ---- metrics access (read after quiescing) ------------------------------------------------------------------

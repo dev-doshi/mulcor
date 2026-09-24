@@ -70,6 +70,16 @@ class MechanicsTest {
 
     // ---- redstone ----------------------------------------------------------------------------------------------
 
+    /** Build like vanilla {@code /setblock}: shape updates, then neighbour updates, at the last completed tick. */
+    private static void build(Engine e, int x, int y, int z, int state) {
+        assertTrue(e.setBlockCommand(x, y, z, state), "setblock " + x + " " + y + " " + z);
+    }
+
+    /**
+     * A source placed through ingress is processed at game time {@code epoch - 1} of the next tick (vanilla handles
+     * packets before the tick), so a delay-2 repeater (4 game ticks) powers on the 4th tick after that game time. Across
+     * a border the neighbour update carries its sender's game time, so the hop costs nothing.
+     */
     @Test
     void repeaterDelayIsExactInsideARegionAndAcrossABorder() {
         try (var e = new Engine(cfg())) {
@@ -77,34 +87,35 @@ class MechanicsTest {
             int y = w.surfaceY;
             clear(e, 36, 70, 18, 26);
             // Inside one region: source 40 → repeater 41 (east, 2 redstone ticks = 4 game ticks) → wire 42.
-            w.blocks.set(41, y, 20, Blocks.repeater(1, 2, false));
-            w.blocks.set(42, y, 20, Blocks.WIRE);
+            build(e, 41, y, 20, Blocks.repeater(1, 2, false));
+            build(e, 42, y, 20, Blocks.WIRE);
             // Across x=64: source 60 → wires 61..63 (region A) → repeater 64 (region B, same delay) → wire 65.
-            for (int x = 61; x <= 63; x++) w.blocks.set(x, y, 24, Blocks.WIRE);
-            w.blocks.set(64, y, 24, Blocks.repeater(1, 2, false));
-            w.blocks.set(65, y, 24, Blocks.WIRE);
+            for (int x = 61; x <= 63; x++) build(e, x, y, 24, Blocks.WIRE);
+            build(e, 64, y, 24, Blocks.repeater(1, 2, false));
+            build(e, 65, y, 24, Blocks.WIRE);
             assertEquals(w.ownerOfBlock(40, 20), w.ownerOfBlock(42, 20));
             assertNotEquals(w.ownerOfBlock(63, 24), w.ownerOfBlock(64, 24));
+            e.run(3);
+            long placedAt = e.epoch(); // the game time the next tick's ingress runs at
             set(e, 40, y, 20, Blocks.REDSTONE_BLOCK);
             set(e, 60, y, 24, Blocks.REDSTONE_BLOCK);
             e.tick();
-            long start = e.epoch();
             assertEquals(13, Blocks.wirePower(w.blocks.get(63, y, 24)), "wires settle in the tick the source appears");
             long inside = -1, across = -1;
             for (int t = 0; t < 20; t++) {
-                e.tick();
                 if (inside < 0 && Blocks.wirePower(w.blocks.get(42, y, 20)) == 15) inside = e.epoch();
                 if (across < 0 && Blocks.wirePower(w.blocks.get(65, y, 24)) == 15) across = e.epoch();
+                e.tick();
             }
-            assertEquals(start + 4, inside, "repeater delay 2 = 4 game ticks");
-            assertEquals(start + 4, across, "the border hop is absorbed: the update carried its send epoch");
+            assertEquals(placedAt + 4, inside, "repeater delay 2 = 4 game ticks");
+            assertEquals(placedAt + 4, across, "the border hop is absorbed: the update carried its send game time");
         }
     }
 
     /**
-     * Torch on block B; repeater R1 behind the torch powers solid S; the wire under S feeds repeater R2, which
-     * points back into B. B powered turns the torch off, and so on: a clock with period 2·(2 + 2 + 2) = 12 ticks.
-     * A lamp next to B follows it (turning off 4 ticks late).
+     * Wall torch T on the south face of block B; repeater R1 (delay 1) takes T's signal south into a six-wire loop
+     * that feeds repeater R2 (delay 1), which points west into B. B powered turns T off, and so on: a clock with half
+     * period 2 (torch) + 2 (R1) + 2 (R2) = 6 ticks. A lamp west of B follows it: on instantly, off 4 ticks late.
      */
     @Test
     void torchRepeaterClockHasAnExactPeriodAndDrivesALamp() {
@@ -112,28 +123,33 @@ class MechanicsTest {
             var w = e.world;
             int y = w.surfaceY, x = 100, z = 5;
             clear(e, 96, 104, 2, 10);
-            w.blocks.set(x, y, z, Blocks.STONE);                       // B
-            w.blocks.set(x, y + 1, z + 1, Blocks.repeater(2, 1, false)); // R1: input = torch, output south into S
-            w.blocks.set(x, y + 1, z + 2, Blocks.STONE);               // S
-            w.blocks.set(x, y, z + 2, Blocks.WIRE);                    // under S
-            w.blocks.set(x, y, z + 1, Blocks.repeater(0, 1, false));   // R2: input = wire, output north into B
-            w.blocks.set(x + 1, y, z, Blocks.LAMP);
-            set(e, x, y + 1, z, Blocks.TORCH);
+            build(e, x, y, z, Blocks.STONE);                                 // B
+            build(e, x - 1, y, z, Blocks.LAMP);
+            build(e, x, y, z + 2, Blocks.repeater(2, 1, false));             // R1: input north (T), output south
+            int[][] loop = {{x, z + 3}, {x + 1, z + 3}, {x + 2, z + 3}, {x + 2, z + 2}, {x + 2, z + 1}, {x + 2, z}};
+            for (int[] p : loop) build(e, p[0], y, p[1], Blocks.WIRE);
+            build(e, x + 1, y, z, Blocks.repeater(3, 1, false));             // R2: input east (wire), output west into B
+            int torchPos = RedstoneParityTest.state("redstone_wall_torch[facing=south,lit=true]");
+            build(e, x, y, z + 1, torchPos);                                 // T, last: its updates start the clock
             List<Long> torchFlips = new ArrayList<>(), lampFlips = new ArrayList<>();
-            int torch = Blocks.TORCH, lamp = Blocks.LAMP;
+            int torch = w.blocks.get(x, y, z + 1), lamp = w.blocks.get(x - 1, y, z);
             for (int t = 0; t < 150; t++) {
                 e.tick();
-                int nt = w.blocks.get(x, y + 1, z), nl = w.blocks.get(x + 1, y, z);
+                int nt = w.blocks.get(x, y, z + 1), nl = w.blocks.get(x - 1, y, z);
+                assertTrue(nt != Blocks.AIR && nl != Blocks.AIR, "clock intact");
                 if (nt != torch) torchFlips.add(e.epoch());
                 if (nl != lamp) lampFlips.add(e.epoch());
                 torch = nt;
                 lamp = nl;
             }
             assertTrue(torchFlips.size() >= 20, "clock runs: " + torchFlips);
-            for (int i = 2; i < torchFlips.size(); i++) {
-                assertEquals(12, torchFlips.get(i) - torchFlips.get(i - 2), "period, flips at " + torchFlips);
+            for (int i = 1; i < torchFlips.size(); i++) {
+                assertEquals(6, torchFlips.get(i) - torchFlips.get(i - 1), "half period, flips at " + torchFlips);
             }
             assertTrue(lampFlips.size() >= 20, "lamp follows the clock: " + lampFlips);
+            for (int i = 2; i < lampFlips.size(); i++) {
+                assertEquals(12, lampFlips.get(i) - lampFlips.get(i - 2), "lamp period, flips at " + lampFlips);
+            }
             assertEquals(0, e.stats().ticksDropped);
         }
     }

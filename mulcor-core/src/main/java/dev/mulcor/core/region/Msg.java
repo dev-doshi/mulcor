@@ -24,8 +24,9 @@ public final class Msg {
     /** BODY = centre x, y, z (doubles) and power (float). The receiver pushes its own entities (knockback). */
     public static final int EXPLOSION = 4;
     /**
-     * A,B,C = x,y,z of a block to re-evaluate (0-delay neighbour update crossing a region border). DEADLINE = the
-     * sender's epoch, used as the origin for any tick the update schedules.
+     * A,B,C = x,y,z of a block that gets a neighbour update ({@code neighborChanged}) crossing a region border.
+     * DEADLINE = the sender's game time, which the receiver runs the update at (so ticks it schedules are due when
+     * they would have been inside one region).
      */
     public static final int NEIGHBOR_UPDATE = 5;
     /** A = chest, B = slot, C = count, D = requesting entity. */
@@ -39,8 +40,8 @@ public final class Msg {
     /** WORD = epoch sent, DST = target. Test-only: measures delivery latency in epochs. */
     public static final int PROBE = 10;
     /**
-     * A,B,C = x,y,z; D = priority; DEADLINE = due epoch. A scheduled block tick whose position changed owner
-     * (region split or merge) is handed to the new owner with its due epoch intact.
+     * A,B,C = x,y,z; D = priority; E = block id; DEADLINE = due epoch. A scheduled block tick whose position changed
+     * owner (region split or merge) is handed to the new owner with its due epoch intact.
      */
     public static final int SCHEDULED_TICK = 11;
     /**
@@ -49,6 +50,12 @@ public final class Msg {
      * blast (as vanilla does) and each owner destroys its share.
      */
     public static final int EXPLOSION_BLOCKS = 12;
+    /**
+     * A,B,C = x,y,z of a block that gets a shape update crossing a region border; D = direction (Direction ordinal)
+     * of the neighbour that changed, E = that neighbour's state, F = update flags, WORD = recursion left;
+     * DEADLINE = the sender's game time.
+     */
+    public static final int SHAPE_UPDATE = 13;
     /** Positions per {@link #EXPLOSION_BLOCKS} message. */
     public static final int BATCH = dev.mulcor.memory.EntityRecord.BYTES / 8;
 

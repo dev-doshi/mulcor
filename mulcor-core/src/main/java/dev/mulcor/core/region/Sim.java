@@ -143,9 +143,8 @@ final class Sim {
         BlockStorage b = r.world.blocks;
         int st = b.get(x, y, z);
         if (!Blocks.isMineable(st)) return; // already gone: whoever arrived first got it
-        r.setBlock(x, y, z, Blocks.AIR);
+        Redstone.removeBlock(r, x, y, z); // ServerPlayerGameMode.destroyBlock → level.removeBlock(pos, false)
         deliver(r, eid, st, 1);
-        Redstone.blockChanged(r, x, y, z);
     }
 
     /** Entity {@code eid} (owned by {@code r}) places one {@code item} from its inventory. */
@@ -167,9 +166,8 @@ final class Sim {
 
     private static void placeOwned(Region r, int eid, int x, int y, int z, int item) {
         BlockStorage b = r.world.blocks;
-        if (b.inBounds(x, y, z) && b.get(x, y, z) == Blocks.AIR && r.setBlock(x, y, z, item) != BlockStorage.FAILED) {
-            Redstone.blockChanged(r, x, y, z);
-        } else {
+        // BlockItem.place → level.setBlock(pos, state, UPDATE_ALL_IMMEDIATE = 11)
+        if (!(b.inBounds(x, y, z) && b.get(x, y, z) == Blocks.AIR && Redstone.setBlock(r, x, y, z, item, 11))) {
             deliver(r, eid, item, 1); // occupied or out of world: refund
         }
     }
@@ -306,8 +304,11 @@ final class Sim {
             case Msg.BLOCK_PLACE -> placeOwned(r, seg.get(I, off + Msg.E), a, b, c, d);
             case Msg.EXPLOSION -> Explosion.receive(r, seg, off);
             case Msg.EXPLOSION_BLOCKS -> Explosion.receiveBlocks(r, seg, off);
-            case Msg.NEIGHBOR_UPDATE -> Redstone.update(r, a, b, c, seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE));
-            case Msg.SCHEDULED_TICK -> Redstone.scheduleAt(r, a, b, c, seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE), d);
+            case Msg.NEIGHBOR_UPDATE -> Redstone.receiveNeighborUpdate(r, a, b, c, seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE));
+            case Msg.SHAPE_UPDATE -> Redstone.receiveShapeUpdate(r, a, b, c, d, seg.get(I, off + Msg.E), seg.get(I, off + Msg.F),
+                    (int) seg.get(ValueLayout.JAVA_LONG, off + Msg.WORD), seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE));
+            case Msg.SCHEDULED_TICK -> Redstone.receiveScheduledTick(r, a, b, c, seg.get(I, off + Msg.E), d,
+                    seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE));
             case Msg.INV_TAKE -> {
                 long taken = r.world.chests.take(a, b, c);
                 deliver(r, d, OffHeapInventory.item(taken), OffHeapInventory.count(taken));
@@ -319,9 +320,9 @@ final class Sim {
 
     // ---- commands ----------------------------------------------------------------------------------------------
 
-    /** SET_BLOCK input: set a block this region owns and run the resulting updates. */
+    /** SET_BLOCK input: vanilla {@code /setblock} on a block this region owns (see {@link Redstone#commandSetBlock}). */
     static void setBlockAndUpdate(Region r, int x, int y, int z, int state) {
-        if (r.world.ownerOfBlock(x, z) != r.id || r.setBlock(x, y, z, state) == BlockStorage.FAILED) return;
-        Redstone.blockChanged(r, x, y, z);
+        if (r.world.ownerOfBlock(x, z) != r.id || !r.world.blocks.inBounds(x, y, z)) return;
+        Redstone.commandSetBlock(r, x, y, z, state);
     }
 }

@@ -4,17 +4,23 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
 /**
- * A region's scheduled block ticks: an off-heap binary min-heap ordered like vanilla's tick list, by
- * (due epoch, priority, insertion order), plus an open-addressing set of the scheduled positions so a block is
- * never scheduled twice (vanilla's {@code hasScheduledTick} check).
+ * A region's scheduled block ticks, like vanilla's {@code LevelTicks}/{@code LevelChunkTicks}: an off-heap binary
+ * min-heap ordered by (due epoch, priority, scheduling order) — vanilla's {@code ScheduledTick.DRIFT_COMPARATOR}
+ * (triggerTick, priority, subTickOrder) — plus an open-addressing set keyed by (position, block type), so a block is
+ * never scheduled twice while a tick for it is pending ({@code LevelChunkTicks.schedule}: {@code ticksPerPosition}
+ * is keyed by {@code ScheduledTick.UNIQUE_KEY_HASH} = position and type). The set also records each tick's due
+ * epoch, for {@code willTickThisTick}.
  *
  * <p>Positions are packed longs (see {@link #pack}). Fixed capacity: {@link #schedule} returns false when full.
  * Confined to the thread running the owning region, like its entity table. No allocation.
  */
 public final class ScheduledTicks {
     private static final ValueLayout.OfLong L = ValueLayout.JAVA_LONG;
-    private static final long ENTRY = 24; // due, order, pos
-    private static final long EMPTY = 0;
+    private static final ValueLayout.OfInt I = ValueLayout.JAVA_INT;
+    /** Heap entry: due, order (priority:16 | seq:48), pos, block (int) + pad. */
+    private static final long ENTRY = 32;
+    /** Set slot: pos, block + 1 (int; 0 = empty) + pad, due. */
+    private static final long SLOT = 24;
 
     private final int capacity;
     private final MemorySegment heap;
@@ -22,14 +28,12 @@ public final class ScheduledTicks {
     private final int setMask;
     private int size;
     private long seq;
-    /** pack(-1, -1, -1) == -1 maps to key 0, the empty marker, so that one position is tracked by a flag. */
-    private boolean zeroKey;
 
     public ScheduledTicks(NativeMemory memory, int capacity) {
         this.capacity = capacity;
         this.heap = memory.allocate(capacity * ENTRY);
         int slots = Integer.highestOneBit(Math.max(4, capacity * 2 - 1)) << 1;
-        this.set = memory.allocate((long) slots * Long.BYTES);
+        this.set = memory.allocate(slots * SLOT);
         this.setMask = slots - 1;
     }
 
@@ -58,18 +62,28 @@ public final class ScheduledTicks {
         return (int) (heap.get(L, 8) >> 48) - 8;
     }
 
-    public boolean isScheduled(long pos) {
-        return contains(pos);
+    public int peekBlock() {
+        return heap.get(I, 24);
+    }
+
+    public boolean isScheduled(long pos, int block) {
+        return find(pos, block) >= 0;
+    }
+
+    /** Due epoch of the pending tick for (pos, block), or {@link Long#MAX_VALUE} if there is none. */
+    public long due(long pos, int block) {
+        int i = find(pos, block);
+        return i < 0 ? Long.MAX_VALUE : set.get(L, i * SLOT + 16);
     }
 
     /**
-     * Schedule a tick for {@code pos} at epoch {@code due}. Lower priority values run first among ticks due in the
-     * same epoch (vanilla: -3 extremely high … 3 extremely low). Returns false if the position already has a tick
-     * scheduled or the queue is full.
+     * Schedule a tick for {@code block} at {@code pos}, due at epoch {@code due}. Lower priority values run first among
+     * ticks due in the same epoch (vanilla: -3 extremely high … 3 extremely low), then earlier-scheduled ones.
+     * Returns false if (pos, block) already has a tick pending or the queue is full.
      */
-    public boolean schedule(long due, int priority, long pos) {
-        if (size == capacity || contains(pos)) return false;
-        insertKey(pos);
+    public boolean schedule(long due, int priority, long pos, int block) {
+        if (size == capacity || find(pos, block) >= 0) return false;
+        insertKey(pos, block, due);
         long order = ((long) (priority + 8) << 48) | (seq++ & 0xFFFF_FFFF_FFFFL);
         int i = size++;
         while (i > 0) {
@@ -83,17 +97,19 @@ public final class ScheduledTicks {
         heap.set(L, off, due);
         heap.set(L, off + 8, order);
         heap.set(L, off + 16, pos);
+        heap.set(I, off + 24, block);
         return true;
     }
 
-    /** Remove the next tick and return its position. The queue must not be empty. */
+    /** Remove the next tick and return its position (read {@link #peekBlock} first). The queue must not be empty. */
     public long poll() {
         long pos = heap.get(L, 16);
-        removeKey(pos);
+        removeKey(pos, heap.get(I, 24));
         int last = --size;
         if (last > 0) {
             long lOff = last * ENTRY;
             long due = heap.get(L, lOff), order = heap.get(L, lOff + 8), p = heap.get(L, lOff + 16);
+            int b = heap.get(I, lOff + 24);
             int i = 0;
             for (;;) {
                 int c = 2 * i + 1;
@@ -108,13 +124,13 @@ public final class ScheduledTicks {
             heap.set(L, off, due);
             heap.set(L, off + 8, order);
             heap.set(L, off + 16, p);
+            heap.set(I, off + 24, b);
         }
         return pos;
     }
 
     public void clear() {
         size = 0;
-        zeroKey = false;
         set.fill((byte) 0);
     }
 
@@ -126,61 +142,46 @@ public final class ScheduledTicks {
         MemorySegment.copy(heap, from * ENTRY, heap, to * ENTRY, ENTRY);
     }
 
-    // ---- position set: linear probing, backward-shift deletion (no tombstones) ------------------------------
+    // ---- (pos, block) set: linear probing, backward-shift deletion (no tombstones) ----------------------------
+    // A slot is empty when its block field (stored as block + 1) is 0, so every packed position is a valid key.
 
-    private static long key(long pos) {
-        return pos + 1; // pack(0, 0, 0) == 0 would collide with EMPTY
-    }
-
-    private int home(long k) {
-        long h = k * 0x9E3779B97F4A7C15L;
+    private int home(long pos, int block) {
+        long h = (pos ^ ((long) block << 32 | block)) * 0x9E3779B97F4A7C15L;
         return (int) (h >>> 40) & setMask;
     }
 
-    private boolean contains(long pos) {
-        return key(pos) == EMPTY ? zeroKey : find(pos) >= 0;
-    }
-
-    private int find(long pos) {
-        long k = key(pos);
-        for (int i = home(k); ; i = (i + 1) & setMask) {
-            long v = set.get(L, (long) i * Long.BYTES);
-            if (v == k) return i;
-            if (v == EMPTY) return -1;
+    private int find(long pos, int block) {
+        for (int i = home(pos, block); ; i = (i + 1) & setMask) {
+            int tag = set.get(I, i * SLOT + 8);
+            if (tag == 0) return -1;
+            if (tag == block + 1 && set.get(L, i * SLOT) == pos) return i;
         }
     }
 
-    private void insertKey(long pos) {
-        long k = key(pos);
-        if (k == EMPTY) {
-            zeroKey = true;
-            return;
-        }
-        int i = home(k);
-        while (set.get(L, (long) i * Long.BYTES) != EMPTY) i = (i + 1) & setMask;
-        set.set(L, (long) i * Long.BYTES, k);
+    private void insertKey(long pos, int block, long due) {
+        int i = home(pos, block);
+        while (set.get(I, i * SLOT + 8) != 0) i = (i + 1) & setMask;
+        set.set(L, i * SLOT, pos);
+        set.set(I, i * SLOT + 8, block + 1);
+        set.set(L, i * SLOT + 16, due);
     }
 
-    private void removeKey(long pos) {
-        if (key(pos) == EMPTY) {
-            zeroKey = false;
-            return;
-        }
-        int hole = find(pos);
+    private void removeKey(long pos, int block) {
+        int hole = find(pos, block);
         if (hole < 0) return;
         int i = hole;
         for (;;) {
             i = (i + 1) & setMask;
-            long v = set.get(L, (long) i * Long.BYTES);
-            if (v == EMPTY) break;
-            int h = home(v);
-            // Move v back into the hole if its home is not in the (cyclic) range (hole, i].
+            int tag = set.get(I, i * SLOT + 8);
+            if (tag == 0) break;
+            int h = home(set.get(L, i * SLOT), tag - 1);
+            // Move the entry back into the hole if its home is not in the (cyclic) range (hole, i].
             boolean movable = hole <= i ? (h <= hole || h > i) : (h <= hole && h > i);
             if (movable) {
-                set.set(L, (long) hole * Long.BYTES, v);
+                MemorySegment.copy(set, i * SLOT, set, hole * SLOT, SLOT);
                 hole = i;
             }
         }
-        set.set(L, (long) hole * Long.BYTES, EMPTY);
+        set.set(I, hole * SLOT + 8, 0);
     }
 }
