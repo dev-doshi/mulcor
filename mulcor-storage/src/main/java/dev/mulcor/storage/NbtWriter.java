@@ -96,6 +96,14 @@ public final class NbtWriter {
         return this;
     }
 
+    /** A named field whose payload is already-encoded NBT (as captured by a reader): header + raw bytes. */
+    public NbtWriter raw(int type, String name, byte[] payload) {
+        header(type, name);
+        ensure(payload.length);
+        b.put(payload);
+        return this;
+    }
+
     /** Start a list of {@code length} elements of {@code elementType}; write exactly that many unnamed elements. */
     public NbtWriter beginList(String name, int elementType, int length) {
         header(Nbt.LIST, name);

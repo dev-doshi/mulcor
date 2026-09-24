@@ -67,7 +67,13 @@ class RegionFileTest {
 
         CompoundBinaryTag read(int x, int z) throws Exception { return (CompoundBinaryTag) read.invoke(file, x, z); }
         void write(int x, int z, CompoundBinaryTag t) throws Exception { write.invoke(file, x, z, t); }
-        @Override public void close() throws Exception { close.invoke(file); }
+        @Override public void close() throws java.io.IOException {
+            try {
+                close.invoke(file);
+            } catch (ReflectiveOperationException e) {
+                throw new java.io.IOException(e);
+            }
+        }
     }
 
     @Test
