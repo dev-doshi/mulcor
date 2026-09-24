@@ -132,6 +132,28 @@ class LightEngineTest {
     }
 
     /**
+     * {@code useShapeForLightOcclusion} is exactly vanilla's set of overriding classes: carpets, fences and walls
+     * occlude with their shape but do not use it for light, so sky light falls straight through a carpet.
+     */
+    @Test
+    void onlyVanillaUseShapeBlocksOccludeByFace() {
+        int bottom = state(BlockId.OAK_SLAB, "type", "bottom"), dbl = state(BlockId.OAK_SLAB, "type", "double");
+        assertTrue(BlockData.is(bottom, BlockData.USE_SHAPE_FOR_LIGHT));
+        assertFalse(BlockData.is(dbl, BlockData.USE_SHAPE_FOR_LIGHT), "SlabBlock: type != DOUBLE");
+        assertTrue(BlockData.is(BlockData.defaultState(BlockId.CUT_COPPER_STAIRS), BlockData.USE_SHAPE_FOR_LIGHT), "copper collection stairs");
+        assertTrue(BlockData.is(state(BlockId.PISTON, "extended", "true"), BlockData.USE_SHAPE_FOR_LIGHT));
+        assertFalse(BlockData.is(state(BlockId.PISTON, "extended", "false"), BlockData.USE_SHAPE_FOR_LIGHT), "PistonBaseBlock: EXTENDED");
+        for (int b : new int[] {BlockId.WHITE_CARPET, BlockId.OAK_FENCE, BlockId.COBBLESTONE_WALL, BlockId.CHEST, BlockId.BOOKSHELF, BlockId.POWDER_SNOW}) {
+            assertFalse(BlockData.is(BlockData.defaultState(b), BlockData.USE_SHAPE_FOR_LIGHT), BlockData.name(b));
+        }
+        solid();
+        air(8, 40, 8, 8, 63, 8);
+        blocks.set(8, 50, 8, BlockData.defaultState(BlockId.WHITE_CARPET));
+        engine.relightAll();
+        assertEquals(15, skyLight.get(8, 49, 8), "sky passes a carpet unchanged (light block 0, shape ignored)");
+    }
+
+    /**
      * Incremental updates must land on the same fixed point as a full relight. Random edits (emitters, opaque and
      * partially transparent blocks, face-occluding slabs, water, leaves) in a cave-riddled scene, each applied with
      * onBlockChanged; every 25 edits the whole storage is compared against a from-scratch relight.

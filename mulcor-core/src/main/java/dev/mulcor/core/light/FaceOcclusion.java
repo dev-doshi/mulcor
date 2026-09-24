@@ -17,11 +17,10 @@ import dev.mulcor.registry.Shapes;
  * </pre>
  * {@code ChunkSkyLightSources.isEdgeOccluded(above, below)} (sky sources) uses the same faces: {@code below}'s
  * light block is non-zero, or {@code faceShapeOccludes(getOcclusionShape(above, DOWN), getOcclusionShape(below, UP))}.
- * The registry carries {@code canOcclude} ({@link BlockData#OCCLUDES}) and the occlusion shape, but not
- * {@code useShapeForLightOcclusion}. For full-cube occlusion shapes the flag cannot change any result, since a
- * full face occludes and such states block light by opacity alike; for the rest (slabs, stairs, snow layers,
- * farmland, paths, ...) vanilla sets it. So: {@code useShape = canOcclude && !isFullBlock(occlusionShape)}. The
- * light oracle test (vanilla-stored light from real worlds) guards this.
+ * {@code canOcclude} is {@link BlockData#OCCLUDES}; {@code useShapeForLightOcclusion} is
+ * {@link BlockData#USE_SHAPE_FOR_LIGHT}, generated from the exact set of vanilla classes that override it (slabs
+ * except double, stairs, shelves, snow layers, farmland, dirt paths, daylight detectors, enchanting tables, end
+ * portal frames, lecterns, sculk sensors and shriekers, stonecutters, extended piston bases, piston heads).
  *
  * <p>Faces are precomputed per state and direction into rectangle lists in a shared 2-D frame per axis
  * (UP/DOWN in x,z; NORTH/SOUTH in x,y; WEST/EAST in z,y), so a lookup allocates nothing.
@@ -50,7 +49,7 @@ public final class FaceOcclusion {
         for (int s = 0; s < n; s++) {
             boolean canOcclude = BlockData.is(s, BlockData.OCCLUDES);
             int shape = BlockData.occlusionShape(s);
-            EMPTY_SHAPE[s] = !canOcclude || Shapes.isFullBlock(shape);
+            EMPTY_SHAPE[s] = !canOcclude || !BlockData.is(s, BlockData.USE_SHAPE_FOR_LIGHT);
             for (int d = 0; d < 6; d++) {
                 double[] rects = EMPTY_SHAPE[s] ? new double[0] : face(shape, d);
                 if (rects.length == 0) {

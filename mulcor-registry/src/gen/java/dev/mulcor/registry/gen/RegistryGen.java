@@ -35,7 +35,7 @@ public final class RegistryGen {
     static final int SOLID = 1, SOLID_BLOCKING = 1 << 1, BLOCKS_MOTION = 1 << 2, REDSTONE_CONDUCTOR = 1 << 3,
             FLUID = 1 << 4, FLAMMABLE = 1 << 5, CAN_RESPAWN_IN = 1 << 6, AIR = 1 << 7, LIQUID = 1 << 8,
             REPLACEABLE = 1 << 9, OCCLUDES = 1 << 10, SIGNAL_SOURCE = 1 << 11, REQUIRES_TOOL = 1 << 12,
-            GRAVITY = 1 << 13;
+            GRAVITY = 1 << 13, USE_SHAPE_FOR_LIGHT = 1 << 14;
 
     private static final Pattern AABB = Pattern.compile(
             "AABB\\[([-0-9.E]+), ([-0-9.E]+), ([-0-9.E]+)\\] -> \\[([-0-9.E]+), ([-0-9.E]+), ([-0-9.E]+)\\]");
@@ -118,6 +118,36 @@ public final class RegistryGen {
         if (bool(s, "requiresTool", bool(b, "requiresTool", false))) f |= REQUIRES_TOOL;
         if (bool(s, "gravity", bool(b, "gravity", false))) f |= GRAVITY;
         return f;
+    }
+
+    /** Rules from use_shape_for_light_occlusion.txt: {pattern, condition or null}. */
+    private static final List<String[]> USE_SHAPE_RULES = new ArrayList<>();
+
+    static {
+        try (InputStream in = RegistryGen.class.getResourceAsStream("use_shape_for_light_occlusion.txt")) {
+            for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+                line = line.strip();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                String[] parts = line.split("\\s+");
+                USE_SHAPE_RULES.add(new String[] {parts[0], parts.length > 1 ? parts[1] : null});
+            }
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    /** Does vanilla's useShapeForLightOcclusion hold for block {@code name} in state {@code key} ("[a=b,...]")? */
+    static boolean useShapeForLight(String name, String key) {
+        for (String[] rule : USE_SHAPE_RULES) {
+            boolean match = rule[0].startsWith("*") ? name.endsWith(rule[0].substring(1)) : name.equals(rule[0]);
+            if (!match) continue;
+            if (rule[1] == null) return true;
+            boolean negate = rule[1].contains("!=");
+            String[] kv = rule[1].split("!?=");
+            boolean has = ("," + key.substring(1, key.length() - 1) + ",").contains("," + kv[0] + "=" + kv[1] + ",");
+            return negate != has;
+        }
+        return false;
     }
 
     private static int pushReaction(String s) {
@@ -207,7 +237,7 @@ public final class RegistryGen {
                     }
                     if (expect != sid) throw new IllegalStateException(name + key + ": state " + sid + " != layout " + expect);
                     stBlock[sid] = id;
-                    stFlags[sid] = flags(so, b);
+                    stFlags[sid] = flags(so, b) | (useShapeForLight(name, key) ? USE_SHAPE_FOR_LIGHT : 0);
                     stEmission[sid] = integer(so, "lightEmission", integer(b, "lightEmission", 0));
                     stOpacity[sid] = integer(so, "lightBlock", integer(b, "lightBlock", 0));
                     stCollision[sid] = shape(str(so, "collisionShape", str(b, "collisionShape", "[]")));

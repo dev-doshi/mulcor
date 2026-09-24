@@ -22,6 +22,8 @@ public final class BlockData {
             FLUID = 1 << 4, FLAMMABLE = 1 << 5, CAN_RESPAWN_IN = 1 << 6, AIR = 1 << 7, LIQUID = 1 << 8,
             REPLACEABLE = 1 << 9, OCCLUDES = 1 << 10, SIGNAL_SOURCE = 1 << 11, REQUIRES_TOOL = 1 << 12,
             GRAVITY = 1 << 13;
+    /** Vanilla {@code BlockBehaviour.useShapeForLightOcclusion(state)} (slabs except double, stairs, snow, ...). */
+    public static final int USE_SHAPE_FOR_LIGHT = 1 << 14;
 
     /** {@code PushReaction}: how pistons treat the block. */
     public static final int PUSH_NORMAL = 0, PUSH_DESTROY = 1, PUSH_BLOCK = 2, PUSH_IGNORE = 3, PUSH_ONLY = 4;
