@@ -519,7 +519,7 @@ public final class Region {
         switch (seg.get(I, off + Input.KIND)) {
             case Input.MOVE -> Sim.walk(table, slot, a, seg.get(I, off + Input.B));
             case Input.DIG -> Sim.dig(this, eid, x, y, z);
-            case Input.PLACE -> Sim.place(this, eid, x, y, z, a);
+            case Input.PLACE -> Sim.useItemOn(this, eid, x, y, z, a, seg.get(I, off + Input.B));
             case Input.CHEST -> {
                 int count = seg.get(I, off + Input.C);
                 if (count > 0) Sim.takeFromChest(this, eid, a, seg.get(I, off + Input.B), count);

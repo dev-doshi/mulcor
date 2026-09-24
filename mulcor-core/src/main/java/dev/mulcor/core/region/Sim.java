@@ -148,6 +148,23 @@ final class Sim {
     }
 
     /** Entity {@code eid} (owned by {@code r}) places one {@code item} from its inventory. */
+    /**
+     * {@code ServerPlayerGameMode.useItemOn}: the clicked block's use action first ({@code useWithoutItem}; the player
+     * is taken as not sneaking), else place the item against it. {@code face1} is the clicked face + 1, or 0 for a
+     * bare placement at (x, y, z). A clicked block another region owns is not used: the item is placed (a border
+     * deviation until uses travel as messages).
+     */
+    static void useItemOn(Region r, int eid, int x, int y, int z, int item, int face1) {
+        if (face1 > 0 && face1 <= 6) {
+            int d = face1 - 1;
+            int cx = x - RedstoneStates.OX[d], cy = y - RedstoneStates.OY[d], cz = z - RedstoneStates.OZ[d];
+            if (r.world.blocks.inBounds(cx, cy, cz) && r.world.ownerOfBlock(cx, cz) == r.id && Redstone.use(r, cx, cy, cz)) {
+                return;
+            }
+        }
+        place(r, eid, x, y, z, item);
+    }
+
     static void place(Region r, int eid, int x, int y, int z, int item) {
         if (!Blocks.isMineable(item) || !takeOne(r.world.players, eid, item)) return;
         int owner = r.world.ownerOfBlock(x, z);

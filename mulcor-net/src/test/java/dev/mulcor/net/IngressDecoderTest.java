@@ -32,7 +32,7 @@ class IngressDecoderTest {
             assertEquals(IngressDecoder.Result.DRAINED, dec.decode(buf));
             assertEquals(List.of(
                     new Rec(Input.DIG, 77, 10, 5, -20, 0, 0, 0),
-                    new Rec(Input.PLACE, 77, 4, 64, 4, Blocks.DIRT, 0, 0),
+                    new Rec(Input.PLACE, 77, 4, 64, 4, Blocks.DIRT, 6, 0), // B = EAST (5) + 1
                     new Rec(Input.POSITION, 77, 12250, 70500, -3125, Input.ON_GROUND, 0, 0),
                     new Rec(Input.CHEST, 77, 0, 0, 0, 4, 7, 64),
                     new Rec(Input.CHEST, 77, 0, 0, 0, 4, 8, 32),

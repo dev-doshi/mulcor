@@ -120,7 +120,7 @@ public final class IngressDecoder {
                 case 5 -> x++;
                 default -> throw new IllegalArgumentException("face");
             }
-            return emit(Input.PLACE, x, y, z, Blocks.DIRT, 0, 0);
+            return emit(Input.PLACE, x, y, z, Blocks.DIRT, face + 1, 0);
         }
         if (id == Protocol.POSITION) {
             double x = in.readDouble(), y = in.readDouble(), z = in.readDouble();

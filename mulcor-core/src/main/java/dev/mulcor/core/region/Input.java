@@ -15,7 +15,11 @@ public final class Input {
     public static final int MOVE = 1;
     /** X,Y,Z = block to break. */
     public static final int DIG = 2;
-    /** X,Y,Z = position; A = block/item from the player's inventory. */
+    /**
+     * X,Y,Z = position; A = block/item from the player's inventory; B = the clicked face + 1 (a Direction ordinal:
+     * the clicked block is X,Y,Z minus that direction), or 0 for a bare placement. A clicked block that reacts to
+     * being used (lever, button, comparator, repeater) is used instead of placing.
+     */
     public static final int PLACE = 3;
     /** A = chest; B = slot; C = count (> 0 take into player, < 0 put from player). */
     public static final int CHEST = 4;
