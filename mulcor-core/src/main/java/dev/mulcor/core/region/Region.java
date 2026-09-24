@@ -6,6 +6,7 @@ import dev.mulcor.core.light.LightEngine;
 import dev.mulcor.core.light.LightService;
 import dev.mulcor.memory.BlockEventQueue;
 import dev.mulcor.memory.BlockStorage;
+import dev.mulcor.memory.BroadcastJournal;
 import dev.mulcor.memory.EntityDirectory;
 import dev.mulcor.memory.EntityRecord;
 import dev.mulcor.memory.EntityTable;
@@ -66,6 +67,8 @@ public final class Region {
     boolean fluidTicksDone;
     /** Scratch for {@link Fluids}. */
     final FluidScratch fluid = new FluidScratch();
+    /** This slot's egress journal ({@link Journal}): block changes and block events, published at the end of a tick. */
+    final BroadcastJournal journal;
     /** Affinity coalescing is on (see {@link Affinity}): block writes near cell edges mark them for a recount. */
     final boolean affinityEnabled;
     /** Cell edges whose bonds may have changed this epoch (deduplicated by a per-epoch stamp), drained at commit. */
@@ -148,6 +151,7 @@ public final class Region {
         this.fluidTicks = new ScheduledTicks(mem, 16384);
         this.movingPistonCapacity = 8192;
         this.affinityEnabled = cfg.affinity() && cfg.rebalanceInterval() > 0;
+        this.journal = world.journals[id];
         this.movingPistons = new MovingPistons(movingPistonCapacity);
         this.gridNext = new int[cfg.regionEntityCapacity()];
         this.gridCellX = new int[cfg.regionEntityCapacity()];
@@ -174,11 +178,27 @@ public final class Region {
      */
     public int setBlock(int x, int y, int z, int state) {
         int old = world.blocks.set(x, y, z, state);
-        if (old != BlockStorage.FAILED && old != state && LightEngine.affectsLight(old, state)) {
+        if (old == BlockStorage.FAILED || old == state) return old;
+        if (LightEngine.affectsLight(old, state)) {
             if (lightQueued < lightQueue.length) lightQueue[lightQueued++] = packPos(x, y, z);
             else lightOverflow = true;
         }
+        emit(ScheduledTicks.pack(x, y, z), (long) Journal.BLOCK << 56);
         return old;
+    }
+
+    /** Append a record to this slot's egress journal (visible to sessions at the next {@link #publishJournal}). */
+    void emit(long pos, long meta) {
+        long off = journal.begin();
+        MemorySegment seg = journal.segment();
+        seg.set(L, off + Journal.POS, pos);
+        seg.set(L, off + Journal.META, meta);
+        journal.end();
+    }
+
+    /** Make this tick's (or this command's) journal records visible to sessions. */
+    public void publishJournal() {
+        journal.publish();
     }
 
     private long packPos(int x, int y, int z) {
@@ -273,6 +293,7 @@ public final class Region {
         Sim.simulate(this);              // entities: AI, physics, TNT, falling blocks
         Pistons.tickBlockEntities(this); // Level.tickBlockEntities: moving pistons
         Physics.publishSnapshot(this);
+        journal.publish();
         long dt = System.nanoTime() - t0;
         lastTickNanos = dt;
         costEwma = costEwma == 0 ? dt : costEwma * 0.8 + dt * 0.2;
@@ -288,7 +309,9 @@ public final class Region {
         inBlockTicks = false;
         blockTicksDone = true;
         fluidTicksDone = true;
-        return Redstone.commandSetBlock(this, x, y, z, state);
+        boolean changed = Redstone.commandSetBlock(this, x, y, z, state);
+        journal.publish();
+        return changed;
     }
 
     /** Between ticks (driver thread): a player uses the block at pos ({@link Redstone#use}), like a use packet. */
@@ -298,7 +321,9 @@ public final class Region {
         inBlockTicks = false;
         blockTicksDone = true;
         fluidTicksDone = true;
-        return Redstone.use(this, x, y, z);
+        boolean used = Redstone.use(this, x, y, z);
+        journal.publish();
+        return used;
     }
 
     // ---- sending -----------------------------------------------------------------------------------------------

@@ -83,7 +83,8 @@ final class Pistons {
             int st = r.world.blocks.get(x, y, z);
             if (block(st) != block) continue;
             r.blockEventsRun++;
-            if (kind(st) == PISTON) triggerEvent(r, st, x, y, z, a, b);
+            // doBlockEvent → triggerEvent; a true result is broadcast (ClientboundBlockEventPacket: the client animates)
+            if (kind(st) == PISTON && triggerEvent(r, st, x, y, z, a, b)) r.emit(p, Journal.blockEvent(a, b, block));
         }
     }
 

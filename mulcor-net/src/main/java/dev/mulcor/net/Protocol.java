@@ -11,6 +11,8 @@ import net.minestom.server.network.packet.client.play.ClientPlayerPositionStatus
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket;
 import net.minestom.server.network.packet.server.common.KeepAlivePacket;
 import net.minestom.server.network.packet.server.play.AcknowledgeBlockChangePacket;
+import net.minestom.server.network.packet.server.play.BlockActionPacket;
+import net.minestom.server.network.packet.server.play.BlockChangePacket;
 import net.minestom.server.network.packet.server.play.ChunkBatchFinishedPacket;
 import net.minestom.server.network.packet.server.play.ChunkBatchStartPacket;
 import net.minestom.server.network.packet.server.play.ChunkDataPacket;
@@ -37,6 +39,8 @@ public final class Protocol {
     public static final int OUT_BATCH_START = serverId(ChunkBatchStartPacket.class);
     public static final int OUT_BATCH_FINISHED = serverId(ChunkBatchFinishedPacket.class);
     public static final int OUT_ACK_BLOCK = serverId(AcknowledgeBlockChangePacket.class);
+    public static final int OUT_BLOCK_UPDATE = serverId(BlockChangePacket.class);
+    public static final int OUT_BLOCK_EVENT = serverId(BlockActionPacket.class);
 
     public static final int PALETTE_MIN_BITS = Palette.BLOCK_PALETTE_MIN_BITS;
     public static final int PALETTE_MAX_BITS = Palette.BLOCK_PALETTE_MAX_BITS;

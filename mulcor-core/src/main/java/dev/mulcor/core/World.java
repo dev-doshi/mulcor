@@ -6,7 +6,9 @@ import dev.mulcor.core.light.LightService;
 import dev.mulcor.core.region.Msg;
 import dev.mulcor.core.region.Input;
 import dev.mulcor.core.region.Region;
+import dev.mulcor.core.region.Journal;
 import dev.mulcor.memory.BlockStorage;
+import dev.mulcor.memory.BroadcastJournal;
 import dev.mulcor.memory.EntityDirectory;
 import dev.mulcor.memory.EntityRecord;
 import dev.mulcor.memory.LightStorage;
@@ -36,6 +38,11 @@ public final class World implements AutoCloseable {
     public final OffHeapInventory players;
     public final OffHeapInventory chests;
     public final Partition partition;
+    /**
+     * Egress journals, one per region slot ({@link Journal} records): what changed in each tick, for player sessions.
+     * The region running in a slot is its only writer; sessions read every slot's journal.
+     */
+    public final BroadcastJournal[] journals;
     public final Region[] regions;
     public final JoinTickets joins;
     public final int surfaceY;
@@ -66,6 +73,8 @@ public final class World implements AutoCloseable {
         this.joins = new JoinTickets(memory, 1024);
         this.partition = new Partition(cellsX, cellsZ, cfg.maxRegions(), cfg.maxCompactness());
         this.partition.initialize(cfg.initialRegions());
+        this.journals = new BroadcastJournal[cfg.maxRegions()];
+        for (int r = 0; r < journals.length; r++) journals[r] = new BroadcastJournal(memory, Journal.CAPACITY, Journal.BYTES);
         this.regions = new Region[cfg.maxRegions()];
         for (int r = 0; r < regions.length; r++) {
             regions[r] = new Region(r, this, partition.isActive(r));

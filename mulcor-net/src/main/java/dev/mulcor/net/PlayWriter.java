@@ -182,6 +182,26 @@ public final class PlayWriter implements AutoCloseable {
         frame(out);
     }
 
+    /** {@code ClientboundBlockUpdatePacket}: position (the packed layout), block state id. */
+    public void blockUpdate(long pos, int state, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_BLOCK_UPDATE);
+        body.writeLong(pos);
+        VarInts.write(body, Protocol.vanillaState(state));
+        frame(out);
+    }
+
+    /** {@code ClientboundBlockEventPacket}: position, event id, parameter, block type (pistons animate from it). */
+    public void blockEvent(long pos, int a, int b, int block, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_BLOCK_EVENT);
+        body.writeLong(pos);
+        body.writeByte(a);
+        body.writeByte(b);
+        VarInts.write(body, block);
+        frame(out);
+    }
+
     /** Frame {@link #body} (packet id + payload) into {@code out}, compressing it if it reaches the threshold. */
     private void frame(ByteBuf out) {
         int len = body.readableBytes();
