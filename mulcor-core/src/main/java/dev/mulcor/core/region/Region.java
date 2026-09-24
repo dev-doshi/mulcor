@@ -66,6 +66,15 @@ public final class Region {
     boolean fluidTicksDone;
     /** Scratch for {@link Fluids}. */
     final FluidScratch fluid = new FluidScratch();
+    /** Affinity coalescing is on (see {@link Affinity}): block writes near cell edges mark them for a recount. */
+    final boolean affinityEnabled;
+    /** Cell edges whose bonds may have changed this epoch (deduplicated by a per-epoch stamp), drained at commit. */
+    private final int[] affinityDirty = new int[1024];
+    private int affinityDirtyCount;
+    private boolean affinityOverflow;
+    /** Regions a piston of this region was refused by this epoch (merge requests), drained at commit. */
+    private final int[] mergeRequests = new int[16];
+    private int mergeRequestCount;
     /** {@code ServerLevel.isHandlingTick}: from the block ticks through the block events. */
     boolean handlingTick;
     /** Scratch for {@link Redstone#hashSetOrder}. */
@@ -138,6 +147,7 @@ public final class Region {
         this.blockEvents = new BlockEventQueue(mem, 8192);
         this.fluidTicks = new ScheduledTicks(mem, 16384);
         this.movingPistonCapacity = 8192;
+        this.affinityEnabled = cfg.affinity() && cfg.rebalanceInterval() > 0;
         this.movingPistons = new MovingPistons(movingPistonCapacity);
         this.gridNext = new int[cfg.regionEntityCapacity()];
         this.gridCellX = new int[cfg.regionEntityCapacity()];
@@ -173,6 +183,35 @@ public final class Region {
 
     private long packPos(int x, int y, int z) {
         return LightService.pack(x, y, z, world.blocks.minY());
+    }
+
+    /** Note that the bonds across cell {@code edge} may have changed (see {@link Affinity#onBlockWrite}). */
+    void markAffinity(int edge) {
+        for (int i = affinityDirtyCount - 1; i >= 0 && i >= affinityDirtyCount - 8; i--) {
+            if (affinityDirty[i] == edge) return; // recent duplicate (writes cluster)
+        }
+        if (affinityDirtyCount < affinityDirty.length) affinityDirty[affinityDirtyCount++] = edge;
+        else affinityOverflow = true;
+    }
+
+    /** A piston here was refused by region {@code other}'s blocks: ask the commit phase to merge the two. */
+    void requestMerge(int other) {
+        if (!affinityEnabled || other == id) return;
+        for (int i = 0; i < mergeRequestCount; i++) if (mergeRequests[i] == other) return;
+        if (mergeRequestCount < mergeRequests.length) mergeRequests[mergeRequestCount++] = other;
+    }
+
+    // Commit phase: the engine reads and clears the affinity marks.
+    public int affinityDirtyCount() { return affinityDirtyCount; }
+    public int affinityDirty(int i) { return affinityDirty[i]; }
+    public boolean affinityOverflow() { return affinityOverflow; }
+    public int mergeRequestCount() { return mergeRequestCount; }
+    public int mergeRequest(int i) { return mergeRequests[i]; }
+
+    public void clearAffinity() {
+        affinityDirtyCount = 0;
+        affinityOverflow = false;
+        mergeRequestCount = 0;
     }
 
     /**

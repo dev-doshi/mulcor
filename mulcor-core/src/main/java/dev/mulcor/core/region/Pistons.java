@@ -337,8 +337,15 @@ final class Pistons {
     // =============================================================================================================
 
     private static int read(Region r, long p) {
-        if (!owned(r, p)) r.piston.foreign = true;
+        noteForeign(r, p);
         return state(r, p);
+    }
+
+    /** A structure position another region owns: the piston cannot move, and asks for the regions to merge. */
+    private static void noteForeign(Region r, long p) {
+        if (owned(r, p)) return;
+        r.piston.foreign = true;
+        r.requestMerge(r.world.ownerOfBlock(ScheduledTicks.x(p), ScheduledTicks.z(p)));
     }
 
     /**
@@ -374,8 +381,8 @@ final class Pistons {
         }
         if (!ok) return false;
         // Where the structure lands must be this region's too: the head, and every pushed block's destination.
-        if (extending && !owned(r, rel(s.pistonPos, pistonDirection, 1))) s.foreign = true;
-        for (int i = 0; i < s.pushCount; i++) if (!owned(r, rel(s.toPush[i], s.pushDirection, 1))) s.foreign = true;
+        if (extending) noteForeign(r, rel(s.pistonPos, pistonDirection, 1));
+        for (int i = 0; i < s.pushCount; i++) noteForeign(r, rel(s.toPush[i], s.pushDirection, 1));
         if (s.foreign) r.pistonsBlocked++;
         return !s.foreign;
     }

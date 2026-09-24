@@ -104,6 +104,7 @@ final class Redstone {
         // LevelChunk.setBlockState: the old block's block entity goes when the block type changes.
         if (kind(old) == COMPARATOR && block(old) != block(state)) r.comparators.remove(ScheduledTicks.pack(x, y, z));
         if (kind(old) == MOVING_PISTON && block(old) != block(state)) r.movingPistons.remove(ScheduledTicks.pack(x, y, z));
+        Affinity.onBlockWrite(r, x, z, old, state);
         if (block(old) != block(state) && ((flags & UPDATE_NEIGHBORS) != 0 || moved)) {
             affectNeighborsAfterRemoval(r, old, x, y, z, moved);
         }

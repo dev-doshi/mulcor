@@ -18,6 +18,11 @@ import java.util.Arrays;
  * shapes score higher. Perimeter counts only cell edges shared with other regions (world borders cost
  * nothing), because those edges are what generate mailbox traffic.
  *
+ * <p><b>Affinity bonds:</b> each cell edge carries a count of block pairs across it that must interact with no delay
+ * (see {@code dev.mulcor.core.region.Affinity}). A split never cuts a bonded edge, and {@link #forceMerge} joins the
+ * regions on either side of one regardless of the shape rule, so a bonded structure always lives in one region.
+ * Edge ids: {@code 2 × cell} is the edge to the cell at +x, {@code 2 × cell + 1} the edge to the cell at +z.
+ *
  * <p>Not thread-safe: the engine mutates the partition only in the single-threaded commit phase between epochs.
  */
 public final class Partition {
@@ -29,6 +34,8 @@ public final class Partition {
     private final int[] hilbertOrder;
     private final boolean[] active;
     private final int[] cellCount;
+    /** Affinity bonds per cell edge (see the class notes). */
+    private final int[] bonds;
     private int activeCount;
 
     // scratch, reused by every operation: no allocation after construction
@@ -45,6 +52,7 @@ public final class Partition {
         this.cellRegion = new int[cells];
         this.active = new boolean[maxRegions];
         this.cellCount = new int[maxRegions];
+        this.bonds = new int[cells * 2];
         this.tmp = new int[cells];
         this.tmpA = new int[cells];
         this.tmpB = new int[cells];
@@ -88,6 +96,68 @@ public final class Partition {
     public int regionOf(int cell) { return cellRegion[cell]; }
     public int regionAt(int cellX, int cellZ) { return cellRegion[cellZ * cellsX + cellX]; }
     public double maxCompactness() { return maxCompactness; }
+
+    // ---- affinity bonds -----------------------------------------------------------------------------------------
+
+    public int edgeCount() { return cells * 2; }
+
+    /** Whether {@code edge} lies inside the world (the +x edge of the last column and +z edge of the last row do not). */
+    public boolean isEdge(int edge) {
+        int c = edge >> 1;
+        return (edge & 1) == 0 ? c % cellsX < cellsX - 1 : c / cellsX < cellsZ - 1;
+    }
+
+    public int edgeCellA(int edge) { return edge >> 1; }
+    public int edgeCellB(int edge) { return (edge & 1) == 0 ? (edge >> 1) + 1 : (edge >> 1) + cellsX; }
+    public int bonds(int edge) { return bonds[edge]; }
+    public void setBonds(int edge, int n) { bonds[edge] = n; }
+
+    /** The edge between cell {@code c} and its neighbour {@code n} (4-adjacent), or -1. */
+    private int edgeBetween(int c, int n) {
+        if (n == c + 1) return 2 * c;
+        if (n == c - 1) return 2 * n;
+        if (n == c + cellsX) return 2 * c + 1;
+        if (n == c - cellsX) return 2 * n + 1;
+        return -1;
+    }
+
+    /**
+     * Would giving the cells {@code list[from, to)} of region {@code r} to another region cut a bonded edge to a cell
+     * that stays in {@code r}?
+     */
+    private boolean severs(int[] list, int from, int to, int r) {
+        int mark = nextStamp();
+        for (int i = from; i < to; i++) stamp[list[i]] = mark;
+        for (int i = from; i < to; i++) {
+            int c = list[i];
+            int x = c % cellsX, z = c / cellsX;
+            if (x > 0 && cutsBond(c, c - 1, r, mark)) return true;
+            if (x < cellsX - 1 && cutsBond(c, c + 1, r, mark)) return true;
+            if (z > 0 && cutsBond(c, c - cellsX, r, mark)) return true;
+            if (z < cellsZ - 1 && cutsBond(c, c + cellsX, r, mark)) return true;
+        }
+        return false;
+    }
+
+    private boolean cutsBond(int c, int n, int r, int mark) {
+        return cellRegion[n] == r && stamp[n] != mark && bonds[edgeBetween(c, n)] > 0;
+    }
+
+    /**
+     * Join region {@code b} into {@code a} because a bonded edge connects them, whatever the shape rule says (a
+     * bonded structure larger than a well-shaped region becomes one "megaregion"). Returns false if either is
+     * inactive or they are the same.
+     */
+    public boolean forceMerge(int a, int b) {
+        if (a == b || !active[a] || !active[b]) return false;
+        int nb = gather(b, tmpA);
+        for (int i = 0; i < nb; i++) cellRegion[tmpA[i]] = a;
+        cellCount[a] += nb;
+        cellCount[b] = 0;
+        active[b] = false;
+        activeCount--;
+        return true;
+    }
 
     // ---- geometry ----------------------------------------------------------------------------------------------
 
@@ -194,7 +264,8 @@ public final class Partition {
                 int k = sign == 0 ? best - delta : best + delta;
                 if (k < 1 || k >= m || (delta == 0 && sign == 1)) continue;
                 if (Math.abs(2 * prefix[k] - total) > bestImbalance + 2 * tolerance) continue;
-                if (compactnessOf(tmp, 0, k) <= maxCompactness && compactnessOf(tmp, k, m) <= maxCompactness) {
+                if (compactnessOf(tmp, 0, k) <= maxCompactness && compactnessOf(tmp, k, m) <= maxCompactness
+                        && !severs(tmp, k, m, r)) {
                     assign(tmp, k, m, r, fresh);
                     return fresh;
                 }
@@ -238,6 +309,7 @@ public final class Partition {
         if (compactnessOf(tmpA, 0, na) > maxCompactness || compactnessOf(tmpB, 0, nb) > maxCompactness) {
             return NONE;
         }
+        if (severs(tmpB, 0, nb, r)) return NONE;
         assign(tmpB, 0, nb, r, fresh);
         return fresh;
     }

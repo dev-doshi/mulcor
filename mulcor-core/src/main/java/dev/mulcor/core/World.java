@@ -122,6 +122,7 @@ public final class World implements AutoCloseable {
         return 0;
     }
 
+    public int cellBlocks() { return cellBlocks; }
     public int sizeX() { return sizeX; }
     public int sizeZ() { return sizeZ; }
     public int chestCount() { return chestX.length; }

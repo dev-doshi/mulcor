@@ -24,7 +24,8 @@ public record EngineConfig(
         int sampleCapacity,
         int chestsPerCell,
         double pillarDensity,
-        long seed) {
+        long seed,
+        boolean affinity) {
 
     public int cellBlocks() { return cellChunks * 16; }
     public int cellsX() { return chunksX / cellChunks; }
@@ -44,6 +45,7 @@ public record EngineConfig(
         private int sampleCapacity = 1 << 16, chestsPerCell = 1;
         private double pillarDensity = 0.03;
         private long seed = 42;
+        private boolean affinity = true;
 
         public Builder world(int chunksX, int chunksZ) { this.chunksX = chunksX; this.chunksZ = chunksZ; return this; }
         public Builder height(int minY, int sections) { this.minY = minY; this.sections = sections; return this; }
@@ -63,6 +65,11 @@ public record EngineConfig(
         public Builder chestsPerCell(int v) { chestsPerCell = v; return this; }
         public Builder pillarDensity(double v) { pillarDensity = v; return this; }
         public Builder seed(long v) { seed = v; return this; }
+        /**
+         * Affinity coalescing (roadmap §3.3): keep blocks that interact with no delay (redstone, pistons, double
+         * chests, beds) in one region. Takes effect only with a dynamic partition ({@code rebalanceInterval > 0}).
+         */
+        public Builder affinity(boolean v) { affinity = v; return this; }
 
         public EngineConfig build() {
             if (chunksX % cellChunks != 0 || chunksZ % cellChunks != 0) {
@@ -75,7 +82,7 @@ public record EngineConfig(
             return new EngineConfig(chunksX, chunksZ, minY, sections, cellChunks, workers, maxRegions, initial,
                     regionEntityCapacity, maxEntities, inboxCapacity, ingressCapacity, ingressBudget,
                     rebalanceInterval, tickBudgetNanos, maxCompactness, sampleCapacity, chestsPerCell,
-                    pillarDensity, seed);
+                    pillarDensity, seed, affinity);
         }
 
         /** Smallest power of 4 that is ≥ 2 × workers (so Hilbert ranges start as squares), capped by cell count. */

@@ -1,6 +1,7 @@
 package dev.mulcor.core;
 
 import dev.mulcor.core.grid.Partition;
+import dev.mulcor.core.region.Affinity;
 import dev.mulcor.core.region.Entities;
 import dev.mulcor.core.region.Input;
 import dev.mulcor.core.region.Region;
@@ -73,6 +74,8 @@ public final class Engine implements AutoCloseable {
     private final double[] scratchCost;
 
     public long splits, merges, rehomed, reclaimedSections, rebalances;
+    /** Regions merged because a bonded structure spanned them (see {@link Affinity}). */
+    public long affinityMerges;
 
     public Engine(EngineConfig cfg) {
         this.cfg = cfg;
@@ -334,8 +337,52 @@ public final class Engine implements AutoCloseable {
         for (Region r : regions) {
             if (!r.isActive() && r.pendingMessages() > 0) r.forwardRetired(epoch);
         }
+        if (cfg.affinity() && cfg.rebalanceInterval() > 0) coalesce();
         if (cfg.rebalanceInterval() > 0 && epoch % cfg.rebalanceInterval() == 0) rebalance();
         rebuildSchedule();
+    }
+
+    /**
+     * Affinity coalescing (roadmap §3.3), every commit: recount the bonds of the cell edges regions marked dirty (all
+     * edges if a region's list overflowed), then merge the regions on either side of every bonded edge, and the
+     * regions a refused piston asked for. Splits later never cut a bonded edge ({@link Partition#split}).
+     */
+    private void coalesce() {
+        Partition p = world.partition;
+        Region[] regions = world.regions;
+        boolean all = false;
+        for (Region r : regions) {
+            all |= r.affinityOverflow();
+            for (int i = 0; i < r.affinityDirtyCount(); i++) {
+                int e = r.affinityDirty(i);
+                p.setBonds(e, Affinity.recount(world, e));
+            }
+        }
+        if (all) {
+            for (int e = 0; e < p.edgeCount(); e++) if (p.isEdge(e)) p.setBonds(e, Affinity.recount(world, e));
+        }
+        for (Region r : regions) {
+            for (int i = 0; i < r.mergeRequestCount(); i++) absorb(r.id, r.mergeRequest(i));
+            r.clearAffinity();
+        }
+        for (int e = 0; e < p.edgeCount(); e++) {
+            if (p.bonds(e) == 0 || !p.isEdge(e)) continue;
+            int a = p.regionOf(p.edgeCellA(e)), b = p.regionOf(p.edgeCellB(e));
+            if (a != b) absorb(a, b);
+        }
+    }
+
+    /** Merge region {@code b} into {@code a} regardless of shape (bonded), moving its entities and pending work. */
+    private void absorb(int a, int b) {
+        Partition p = world.partition;
+        if (!p.isActive(a) || !p.isActive(b) || !p.forceMerge(a, b)) return;
+        Region ra = world.regions[a], rb = world.regions[b];
+        moveEntitiesOwnedBy(rb, ra);
+        rb.drainInto(ra, epoch);
+        rb.casState(Region.IDLE, Region.INACTIVE);
+        ra.costEwma += rb.costEwma;
+        rb.costEwma = 0;
+        affinityMerges++;
     }
 
     /** Active regions sorted by cost, heaviest first (insertion sort: few regions, no allocation). */
