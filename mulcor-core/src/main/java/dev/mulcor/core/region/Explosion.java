@@ -272,7 +272,7 @@ final class Explosion {
         BlockStorage b = r.world.blocks;
         int st = b.get(x, y, z);
         if (st == Blocks.AIR) return;
-        b.set(x, y, z, Blocks.AIR);
+        r.setBlock(x, y, z, Blocks.AIR);
         if (st == Blocks.TNT) {
             long hh = Rng.mix(seed, dev.mulcor.memory.ScheduledTicks.pack(x, y, z), 7);
             Sim.spawnTnt(r, x + 0.5, y, z + 0.5, 10 + Rng.bounded(hh, 20), hh);

@@ -55,6 +55,8 @@ class HotPathAuditTest {
     /** Methods deliberately excluded from the hot path, with the reason. Key: owner.name */
     static final Map<String, String> COLD = Map.of(
             "dev/mulcor/core/region/Region.describeRings", "diagnostics only",
+            "dev/mulcor/core/light/LightEngine.grow", "queue capacity warm-up: doubles, never shrinks",
+            "dev/mulcor/core/light/LightEngine.growDec", "queue capacity warm-up: doubles, never shrinks",
             "dev/mulcor/net/CipherCodec.write#readOnly", "documented copy of read-only buffers; never produced by Mulcor");
 
     /** Methods the walk must reach (proves the call graph is followed, not just the roots). */

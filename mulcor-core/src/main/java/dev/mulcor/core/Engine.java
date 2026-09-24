@@ -78,6 +78,7 @@ public final class Engine implements AutoCloseable {
         this.cfg = cfg;
         this.world = new World(cfg);
         world.generate();
+        world.startLight();
         this.schedule = new int[cfg.maxRegions()];
         this.cellCost = new long[world.partition.cells()];
         this.scratchCost = new double[cfg.maxRegions()];
@@ -308,6 +309,9 @@ public final class Engine implements AutoCloseable {
     private void commit() {
         reclaimedSections += world.blocks.reclaim();
         Region[] regions = world.regions;
+        // Light: hand every region's block changes of this epoch to the light thread (vanilla lights
+        // asynchronously too, on ThreadedLevelLightEngine).
+        for (Region r : regions) r.drainLight(world.lightService);
         for (Region r : regions) {
             if (!r.isActive() && r.pendingMessages() > 0) r.forwardRetired(epoch);
         }

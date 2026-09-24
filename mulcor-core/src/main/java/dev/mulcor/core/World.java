@@ -1,12 +1,15 @@
 package dev.mulcor.core;
 
 import dev.mulcor.core.grid.Partition;
+import dev.mulcor.core.light.LightEngine;
+import dev.mulcor.core.light.LightService;
 import dev.mulcor.core.region.Msg;
 import dev.mulcor.core.region.Input;
 import dev.mulcor.core.region.Region;
 import dev.mulcor.memory.BlockStorage;
 import dev.mulcor.memory.EntityDirectory;
 import dev.mulcor.memory.EntityRecord;
+import dev.mulcor.memory.LightStorage;
 import dev.mulcor.memory.NativeMemory;
 import dev.mulcor.memory.OffHeapInventory;
 import dev.mulcor.memory.Ownership;
@@ -24,6 +27,11 @@ public final class World implements AutoCloseable {
     public final EngineConfig cfg;
     public final NativeMemory memory = new NativeMemory();
     public final BlockStorage blocks;
+    /** Vanilla block and sky light; written only by the commit phase ({@link #light}), read anywhere with getShared. */
+    public final LightStorage blockLight, skyLight;
+    public final LightEngine light;
+    /** The light thread; started by {@link #startLight()} once the generated world is lit. */
+    public LightService lightService;
     public final EntityDirectory directory;
     public final OffHeapInventory players;
     public final OffHeapInventory chests;
@@ -44,6 +52,10 @@ public final class World implements AutoCloseable {
         this.surfaceY = cfg.minY() + 4;
         this.blocks = new BlockStorage(memory, cfg.chunksX(), cfg.chunksZ(), cfg.minY(), cfg.sections(),
                 cfg.chunksX() * cfg.chunksZ() * cfg.sections());
+        int lightSections = cfg.chunksX() * cfg.chunksZ() * (cfg.sections() + 2);
+        this.blockLight = new LightStorage(memory, cfg.chunksX(), cfg.chunksZ(), cfg.minY(), cfg.sections(), lightSections, 0);
+        this.skyLight = new LightStorage(memory, cfg.chunksX(), cfg.chunksZ(), cfg.minY(), cfg.sections(), lightSections, 0);
+        this.light = new LightEngine(blocks, blockLight, skyLight);
         this.directory = new EntityDirectory(memory, cfg.maxEntities());
         this.players = new OffHeapInventory(memory, cfg.maxEntities(), PLAYER_SLOTS);
         int numChests = cellsX * cellsZ * cfg.chestsPerCell();
@@ -58,6 +70,12 @@ public final class World implements AutoCloseable {
         for (int r = 0; r < regions.length; r++) {
             regions[r] = new Region(r, this, partition.isActive(r));
         }
+    }
+
+    /** Light the whole world, then hand light over to its own thread. */
+    public void startLight() {
+        light.relightAll();
+        lightService = new LightService(light, blocks, 1 << 16);
     }
 
     /** Flat terrain: bedrock, two stone layers and dirt, with scattered 3-high stone pillars and one chest per cell. */
@@ -178,6 +196,7 @@ public final class World implements AutoCloseable {
 
     @Override
     public void close() {
+        if (lightService != null) lightService.close();
         memory.close();
     }
 }

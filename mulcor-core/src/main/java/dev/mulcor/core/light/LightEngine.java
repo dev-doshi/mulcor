@@ -37,9 +37,9 @@ public final class LightEngine {
     private final LightStorage blockLight, skyLight;
     private final int sizeX, sizeZ, minY, maxY; // light bounds (one section beyond the blocks on each side)
     private final int[] skySource; // per column (z * sizeX + x): lowest y that is a sky source
-    private long[] queue = new long[1 << 16];
+    private long[] queue = new long[1 << 17];
     private int head, tail;
-    private long[] dec = new long[1 << 14];
+    private long[] dec = new long[1 << 16];
     private int dHead, dTail;
 
     public LightEngine(BlockStorage blocks, LightStorage blockLight, LightStorage skyLight) {
@@ -53,13 +53,38 @@ public final class LightEngine {
         this.skySource = new int[sizeX * sizeZ];
     }
 
+    /**
+     * Per state: everything light depends on, packed (emission, light block, and the occlusion shape when light
+     * uses it). Two states with equal signatures are interchangeable for block and sky light.
+     */
+    private static final int[] SIGNATURE;
+
+    static {
+        SIGNATURE = new int[dev.mulcor.registry.Registry.stateCount()];
+        for (int s = 0; s < SIGNATURE.length; s++) {
+            int shape = FaceOcclusion.emptyShape(s) ? 0 : BlockData.occlusionShape(s) + 1;
+            SIGNATURE[s] = BlockData.lightEmission(s) | BlockData.lightBlock(s) << 4 | shape << 8;
+        }
+    }
+
+    /**
+     * Can replacing {@code from} with {@code to} change any light level? Vanilla's trigger
+     * ({@code LevelChunk.setBlockState} → {@code checkBlock} when {@code LightEngine.hasDifferentLightProperties}:
+     * {@code a != b && (lightDampening differs || lightEmission differs || a or b useShapeForLightOcclusion)})
+     * re-checks a superset of these changes; since light is the unique fixed point of the engine's inputs, a change
+     * that leaves all of them equal leaves every level equal, so skipping it gives the same result.
+     */
+    public static boolean affectsLight(int from, int to) {
+        return SIGNATURE[from] != SIGNATURE[to];
+    }
+
     /** Vanilla {@code LightEngine.getOpacity}. */
     public static int opacity(int state) {
         return Math.max(1, BlockData.lightBlock(state));
     }
 
     private int state(int x, int y, int z) {
-        return blocks.get(x, y, z); // out-of-range y reads as air
+        return blocks.getShared(x, y, z); // out-of-range y reads as air; the light thread does not own chunks
     }
 
     // ---- queue: x:20 | z:20 | y-minY:12 | level:4 ----
@@ -69,6 +94,10 @@ public final class LightEngine {
         queue[tail++ & (queue.length - 1)] = (long) x << 36 | (long) z << 16 | (long) (y - minY) << 4 | level;
     }
 
+    /**
+     * Capacity warm-up: the queues double when a flood outgrows them and never shrink, so this runs at most a few
+     * times over the world's life (never in steady state).
+     */
     private void grow() {
         long[] bigger = new long[queue.length * 2];
         for (int i = head; i < tail; i++) bigger[i & (bigger.length - 1)] = queue[i & (queue.length - 1)];
@@ -247,12 +276,15 @@ public final class LightEngine {
     }
 
     private void pushDec(int x, int y, int z, int level) {
-        if (dTail - dHead == dec.length) {
-            long[] bigger = new long[dec.length * 2];
-            for (int i = dHead; i < dTail; i++) bigger[i & (bigger.length - 1)] = dec[i & (dec.length - 1)];
-            dec = bigger;
-        }
+        if (dTail - dHead == dec.length) growDec();
         dec[dTail++ & (dec.length - 1)] = (long) x << 36 | (long) z << 16 | (long) (y - minY) << 4 | level;
+    }
+
+    /** Capacity warm-up (see {@link #grow}). */
+    private void growDec() {
+        long[] bigger = new long[dec.length * 2];
+        for (int i = dHead; i < dTail; i++) bigger[i & (bigger.length - 1)] = dec[i & (dec.length - 1)];
+        dec = bigger;
     }
 
     /**

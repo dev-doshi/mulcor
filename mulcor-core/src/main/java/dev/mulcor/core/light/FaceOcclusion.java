@@ -65,6 +65,11 @@ public final class FaceOcclusion {
 
     private FaceOcclusion() {}
 
+    /** Vanilla {@code isEmptyShape}: light ignores this state's shape entirely. */
+    public static boolean emptyShape(int state) {
+        return EMPTY_SHAPE[state];
+    }
+
     public static int opposite(int dir) {
         return dir ^ 1;
     }

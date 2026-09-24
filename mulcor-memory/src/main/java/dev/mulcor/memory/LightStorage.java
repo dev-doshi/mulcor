@@ -135,6 +135,33 @@ public final class LightStorage {
         }
     }
 
+    /** A section's uniform level, or -1 if it holds an array. Any thread (acquire). */
+    public int uniformLevel(int chunkX, int chunkZ, int sectionY) {
+        long to = ((((long) chunkZ * chunksX) + chunkX) * sections + (sectionY - minSection)) * Integer.BYTES;
+        int ref = (int) INT.getAcquire(table, to);
+        return ref <= 0 ? -ref : -1;
+    }
+
+    /**
+     * Append a section's 2048 nibble bytes (vanilla layout; a uniform section expanded) to {@code dst} at
+     * {@code dstOffset}. Any thread; allocation-free.
+     */
+    public void copySection(int chunkX, int chunkZ, int sectionY, MemorySegment dst, long dstOffset) {
+        long to = ((((long) chunkZ * chunksX) + chunkX) * sections + (sectionY - minSection)) * Integer.BYTES;
+        int ref = (int) INT.getAcquire(table, to);
+        if (ref <= 0) {
+            fillBytes(dst, dstOffset, -ref);
+            return;
+        }
+        MemorySegment.copy(slab, (long) (ref - 1) * SECTION_BYTES, dst, dstOffset, SECTION_BYTES);
+    }
+
+    private static void fillBytes(MemorySegment dst, long off, int level) {
+        long b = (level & 15L) | (level & 15L) << 4;
+        long word = b * 0x0101_0101_0101_0101L;
+        for (long o = 0; o < SECTION_BYTES; o += 8) dst.set(ValueLayout.JAVA_LONG_UNALIGNED, off + o, word);
+    }
+
     /**
      * Copy a section's 2048 nibble bytes (vanilla layout) into {@code dst}; a uniform section is expanded. Returns
      * the uniform value, or -1 if the section is materialized.
