@@ -1,0 +1,33 @@
+# Gradle
+.gradle/
+build/
+.kotlin/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+out/
+bin/
+
+# JVM diagnostics
+*.jfr
+*.hprof
+hs_err_pid*.log
+replay_pid*.log
+*.log
+
+# jcstress / JMH output written outside build/
+jcstress-results-*.bin.gz
+results/
+jmh-result*.json
+
+# OS / local tooling
+.DS_Store
+.claude/
