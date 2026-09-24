@@ -104,6 +104,20 @@ public final class NbtWriter {
         return this;
     }
 
+    /** An unnamed list header (a list nested directly in a list). */
+    public NbtWriter rawListHeader(int elementType, int length) {
+        ensure(5);
+        b.put((byte) (length == 0 ? Nbt.END : elementType)).putInt(length);
+        return this;
+    }
+
+    /** Append already-encoded bytes. */
+    public NbtWriter rawBytes(byte[] src, int off, int len) {
+        ensure(len);
+        b.put(src, off, len);
+        return this;
+    }
+
     /** Start a list of {@code length} elements of {@code elementType}; write exactly that many unnamed elements. */
     public NbtWriter beginList(String name, int elementType, int length) {
         header(Nbt.LIST, name);
