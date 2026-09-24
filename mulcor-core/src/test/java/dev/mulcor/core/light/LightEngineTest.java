@@ -130,4 +130,39 @@ class LightEngineTest {
         assertTrue(FaceOcclusion.occludes(bottom, 0, FaceOcclusion.DOWN), "bottom slab → air below");
         assertFalse(FaceOcclusion.occludes(0, STONE, FaceOcclusion.DOWN), "full blocks never use their shape for light");
     }
+
+    /**
+     * Incremental updates must land on the same fixed point as a full relight. Random edits (emitters, opaque and
+     * partially transparent blocks, face-occluding slabs, water, leaves) in a cave-riddled scene, each applied with
+     * onBlockChanged; every 25 edits the whole storage is compared against a from-scratch relight.
+     */
+    @Test
+    void incrementalUpdatesMatchFullRelight() {
+        var rnd = new java.util.SplittableRandom(99);
+        int[] palette = {0, 0, 0, STONE, STONE, BlockData.defaultState(BlockId.TORCH), BlockData.defaultState(BlockId.GLOWSTONE),
+                BlockData.defaultState(BlockId.GLASS), BlockData.defaultState(BlockId.WATER),
+                state(BlockId.OAK_LEAVES, "persistent", "true"), state(BlockId.STONE_SLAB, "type", "bottom"),
+                state(BlockId.STONE_SLAB, "type", "top"), BlockData.defaultState(BlockId.LANTERN),
+                BlockData.defaultState(BlockId.SEA_LANTERN), state(BlockId.OAK_STAIRS, "half", "top")};
+        // Terrain: stone up to y=30 with random caves, open sky above.
+        for (int x = 0; x < 32; x++) for (int z = 0; z < 32; z++) for (int y = 0; y < 30; y++) {
+            blocks.set(x, y, z, rnd.nextInt(5) == 0 ? 0 : STONE);
+        }
+        engine.relightAll();
+        var refBlockLight = new LightStorage(mem, 2, 2, 0, 4, 256, 0);
+        var refSkyLight = new LightStorage(mem, 2, 2, 0, 4, 256, 0);
+        var reference = new LightEngine(blocks, refBlockLight, refSkyLight);
+        for (int edit = 1; edit <= 400; edit++) {
+            int x = rnd.nextInt(32), y = rnd.nextInt(40), z = rnd.nextInt(32);
+            blocks.set(x, y, z, palette[rnd.nextInt(palette.length)]);
+            engine.onBlockChanged(x, y, z);
+            if (edit % 25 == 0) {
+                reference.relightAll();
+                for (int px = 0; px < 32; px++) for (int pz = 0; pz < 32; pz++) for (int py = -16; py < 80; py++) {
+                    assertEquals(refBlockLight.get(px, py, pz), blockLight.get(px, py, pz), "block light at " + px + "," + py + "," + pz + " after " + edit + " edits");
+                    assertEquals(refSkyLight.get(px, py, pz), skyLight.get(px, py, pz), "sky light at " + px + "," + py + "," + pz + " after " + edit + " edits");
+                }
+            }
+        }
+    }
 }

@@ -39,6 +39,8 @@ public final class LightEngine {
     private final int[] skySource; // per column (z * sizeX + x): lowest y that is a sky source
     private long[] queue = new long[1 << 16];
     private int head, tail;
+    private long[] dec = new long[1 << 14];
+    private int dHead, dTail;
 
     public LightEngine(BlockStorage blocks, LightStorage blockLight, LightStorage skyLight) {
         this.blocks = blocks;
@@ -163,6 +165,128 @@ public final class LightEngine {
             }
         }
         head = tail = 0;
+    }
+
+    // ================================================================================================ incremental
+
+    /**
+     * Update light after the block at (x, y, z) changed (its new state is already in the block storage). Vanilla
+     * ({@code LightEngine.checkBlock}) re-evaluates the position: the light that may have depended on it is removed
+     * (decrease pass: every neighbour darker than the removed level is cleared and cleared outward; brighter or
+     * equal neighbours, emitters and sky sources become re-propagation seeds), then everything is re-flooded
+     * (increase pass). The result is the same fixed point as a full relight; {@code LightEngineTest} checks that
+     * after random edits.
+     */
+    public void onBlockChanged(int x, int y, int z) {
+        updateBlock(x, y, z);
+        updateSky(x, y, z);
+    }
+
+    private void updateBlock(int x, int y, int z) {
+        head = tail = 0;
+        dHead = dTail = 0;
+        int old = blockLight.get(x, y, z);
+        if (old > 0) {
+            blockLight.set(x, y, z, 0);
+            pushDec(x, y, z, old);
+        }
+        decrease(blockLight, false);
+        int e = BlockData.lightEmission(state(x, y, z));
+        if (e > blockLight.get(x, y, z)) {
+            blockLight.set(x, y, z, e);
+            push(x, y, z, e);
+        }
+        seedNeighbours(blockLight, x, y, z);
+        flood(blockLight);
+    }
+
+    private void updateSky(int x, int y, int z) {
+        head = tail = 0;
+        dHead = dTail = 0;
+        int col = z * sizeX + x;
+        int oldSrc = skySource[col], newSrc = findSource(x, z);
+        skySource[col] = newSrc;
+        if (newSrc > oldSrc) {
+            // The column closed higher up: positions [oldSrc, newSrc) are no longer sources.
+            for (int yy = oldSrc; yy < newSrc; yy++) {
+                int l = skyLight.get(x, yy, z);
+                if (l > 0) {
+                    skyLight.set(x, yy, z, 0);
+                    pushDec(x, yy, z, l);
+                }
+            }
+        } else if (newSrc < oldSrc) {
+            // The column opened: [newSrc, oldSrc) become 15 and spread.
+            for (int yy = newSrc; yy < oldSrc; yy++) {
+                skyLight.set(x, yy, z, 15);
+                push(x, yy, z, 15);
+            }
+        }
+        if (y < newSrc) {
+            int l = skyLight.get(x, y, z);
+            if (l > 0) {
+                skyLight.set(x, y, z, 0);
+                pushDec(x, y, z, l);
+            }
+        }
+        decrease(skyLight, true);
+        seedNeighbours(skyLight, x, y, z);
+        flood(skyLight);
+    }
+
+    /** Neighbours may now shine into (x, y, z): queue them at their current levels. */
+    private void seedNeighbours(LightStorage light, int x, int y, int z) {
+        for (int d = 0; d < 6; d++) {
+            int nx = x + DX[d], ny = y + DY[d], nz = z + DZ[d];
+            if (nx < 0 || nz < 0 || nx >= sizeX || nz >= sizeZ || ny < minY || ny >= maxY) continue;
+            int l = light.get(nx, ny, nz);
+            if (l > 1) push(nx, ny, nz, l);
+        }
+        int l = light.get(x, y, z);
+        if (l > 1) push(x, y, z, l);
+    }
+
+    private void pushDec(int x, int y, int z, int level) {
+        if (dTail - dHead == dec.length) {
+            long[] bigger = new long[dec.length * 2];
+            for (int i = dHead; i < dTail; i++) bigger[i & (bigger.length - 1)] = dec[i & (dec.length - 1)];
+            dec = bigger;
+        }
+        dec[dTail++ & (dec.length - 1)] = (long) x << 36 | (long) z << 16 | (long) (y - minY) << 4 | level;
+    }
+
+    /**
+     * Decrease pass: from each removed (position, old level), clear neighbours that may have been lit through it
+     * (level below the removed one) and continue from them; neighbours at least as bright, emitters and sky sources
+     * are queued for the increase pass instead.
+     */
+    private void decrease(LightStorage light, boolean sky) {
+        while (dHead != dTail) {
+            long e = dec[dHead++ & (dec.length - 1)];
+            int x = (int) (e >>> 36), z = (int) (e >>> 16) & 0xF_FFFF, y = (int) (e >>> 4 & 0xFFF) + minY;
+            int removed = (int) (e & 15);
+            for (int d = 0; d < 6; d++) {
+                int nx = x + DX[d], ny = y + DY[d], nz = z + DZ[d];
+                if (nx < 0 || nz < 0 || nx >= sizeX || nz >= sizeZ || ny < minY || ny >= maxY) continue;
+                int l = light.get(nx, ny, nz);
+                if (l == 0) continue;
+                boolean source = sky ? ny >= skySource[nz * sizeX + nx] : false;
+                if (l < removed && !source) {
+                    light.set(nx, ny, nz, 0);
+                    pushDec(nx, ny, nz, l);
+                    if (!sky) {
+                        int em = BlockData.lightEmission(state(nx, ny, nz));
+                        if (em > 0) {
+                            light.set(nx, ny, nz, em);
+                            push(nx, ny, nz, em);
+                        }
+                    }
+                } else if (l > 1) {
+                    push(nx, ny, nz, l); // a brighter neighbour (or a source) refills the cleared area
+                }
+            }
+        }
+        dHead = dTail = 0;
     }
 
     /** Lowest sky-source y of a column (after {@link #relightSky}). */
