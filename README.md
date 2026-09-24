@@ -10,8 +10,8 @@ oracle). Its server, instance manager and tick loop are never started.
 |---|---|
 | `mulcor-memory` | FFM (`MemorySegment` / `VarHandle`) primitives: the MPMC `OffHeapRing`, the ABA-safe `TaggedFreeList`, sparse `BlockStorage` with epoch-based section reclamation, the SoA `EntityTable`, the `EntityDirectory` ownership words, the CAS-slotted `OffHeapInventory`, and `AllocationMeter` |
 | `mulcor-core` | `Engine` (ForkJoin tick driver with LPT claiming and a single-threaded commit phase), `Region`, the Hilbert/AABB `Partition` with a shape invariant, cross-region messaging, entity hand-off, and mechanics (mining, A*, TNT, chests, redstone) |
-| `mulcor-net` | Netty (epoll/kqueue/NIO) ingress that decodes packets field by field straight into region rings, lock-free `TokenBucket` backpressure, and an off-heap → direct-buffer `ChunkEncoder` with zlib |
-| `mulcor-harness` | `HeadlessVirtualClientProvider`, `ClientFlood`, the stress scenario, HdrHistogram `TickReport`, the JFR `LockAudit`, `ReportMain`, and the JMH suites |
+| `mulcor-net` | Netty (epoll/kqueue/NIO) ingress that decodes packets field by field straight into region rings, lock-free `TokenBucket` backpressure, an off-heap → direct-buffer `ChunkEncoder` with zlib, and the vanilla connection: `LoginHandler` (handshake, status, login, compression, configuration), `PlaySession` (chunk streaming, keep-alive, block acks) and the zero-allocation `PlayWriter` |
+| `mulcor-harness` | `MulcorServer` (a joinable server), `VanillaClient` (a headless vanilla client used as a protocol oracle), `HeadlessVirtualClientProvider`, `ClientFlood`, the stress scenario, HdrHistogram `TickReport`, the JFR `LockAudit`, `ReportMain`, and the JMH suites |
 
 ## Core invariants (all enforced by tests)
 
@@ -38,6 +38,14 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home
 ./gradlew fullValidation   # check + full jcstress + all JMH + build/reports/mulcor/summary.{md,json}
 ```
 
+Start a server that a Minecraft 26.2 client can join (offline mode, creative, flat world) on `localhost:25565`:
+
+```bash
+./gradlew :mulcor-harness:runServer --args='--port 25565 --chunks 32 --bots 200'
+```
+
+With the server running, `./gradlew :mulcor-harness:vanillaProbe` joins it headlessly and reports what arrived.
+
 Useful properties:
 - `-Pstrict`: fail on any tick > 5 ms.
 - `-Pmulcor.workers=N`: override the worker count.
@@ -49,7 +57,8 @@ Useful properties:
 ## Known limitations
 
 - Measured on an 8-core Apple M1 (4 performance + 4 efficiency cores). Scaling to 64+ threads is a design property that has not been measured.
-- Mechanics are simplified models, not vanilla-accurate. There is no login or configuration protocol; a connection is bound to a pre-spawned entity.
+- Mechanics are simplified models, not vanilla-accurate.
+- Joining is offline mode only (no encryption or Mojang authentication). Players are client-authoritative, and other players, entities and block changes are not yet broadcast to clients. Sky light is sent as full brightness and not computed.
 - Compressed inbound frames are counted as cold and not decoded. Hot packets are always below the compression threshold.
 - Under overload, requests that find both the target inbox and the sender's overflow ring full are shed. Item-carrying messages are shed as counted "dropped items", so conservation still holds.
 - jcstress and the tests give strong evidence of correctness, not formal proof.

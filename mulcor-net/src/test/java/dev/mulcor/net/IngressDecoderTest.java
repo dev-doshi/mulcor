@@ -33,13 +33,49 @@ class IngressDecoderTest {
             assertEquals(List.of(
                     new Rec(Input.DIG, 77, 10, 5, -20, 0, 0, 0),
                     new Rec(Input.PLACE, 77, 4, 64, 4, Blocks.DIRT, 0, 0),
-                    new Rec(Input.POSITION, 77, 12250, 70500, -3125, 0, 0, 0),
+                    new Rec(Input.POSITION, 77, 12250, 70500, -3125, Input.ON_GROUND, 0, 0),
                     new Rec(Input.CHEST, 77, 0, 0, 0, 4, 7, 64),
                     new Rec(Input.CHEST, 77, 0, 0, 0, 4, 8, 32),
                     new Rec(Input.CHEST, 77, 0, 0, 0, 1, 0, -64)), sink.records);
             assertEquals(6, dec.hotPackets());
             assertEquals(2, dec.coldPackets());
             assertEquals(8, dec.frames());
+        } finally {
+            buf.release();
+        }
+    }
+
+    @Test
+    void allFourMovementPacketsBecomePositionRecords() {
+        var sink = new RecordingSink();
+        var dec = new IngressDecoder(9, sink, false);
+        ByteBuf buf = direct();
+        try {
+            Packets.write(buf, Packets.positionRotation(1.5, 70, -2.25, 90f, -45f, true), Packets.rotation(180f, 10f, false),
+                    Packets.ground(true));
+            assertEquals(IngressDecoder.Result.DRAINED, dec.decode(buf));
+            int yaw90 = Float.floatToRawIntBits(90f), pitchM45 = Float.floatToRawIntBits(-45f);
+            assertEquals(List.of(
+                    new Rec(Input.POSITION, 9, 1500, 70000, -2250, Input.HAS_ROTATION | Input.ON_GROUND, yaw90, pitchM45),
+                    new Rec(Input.POSITION, 9, 0, 0, 0, Input.NO_POSITION | Input.HAS_ROTATION,
+                            Float.floatToRawIntBits(180f), Float.floatToRawIntBits(10f)),
+                    new Rec(Input.POSITION, 9, 0, 0, 0, Input.NO_POSITION | Input.ON_GROUND, 0, 0)), sink.records);
+            assertEquals(1500, dec.lastX1000(), "rotation-only packets keep the last position");
+            assertEquals(-2250, dec.lastZ1000());
+        } finally {
+            buf.release();
+        }
+    }
+
+    @Test
+    void blockActionSequencesAreTrackedForAcknowledgement() {
+        var dec = new IngressDecoder(1, new RecordingSink(), false);
+        ByteBuf buf = direct();
+        try {
+            assertEquals(-1, dec.lastSequence());
+            Packets.write(buf, Packets.dig(1, 2, 3), Packets.placeSeq(4, 5, 6, 41), Packets.cancelDig(1, 2, 3));
+            assertEquals(IngressDecoder.Result.DRAINED, dec.decode(buf));
+            assertEquals(41, dec.lastSequence(), "highest of 7 (dig), 41 (place), 8 (cancel)");
         } finally {
             buf.release();
         }

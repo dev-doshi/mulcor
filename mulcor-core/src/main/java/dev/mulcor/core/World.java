@@ -29,6 +29,7 @@ public final class World implements AutoCloseable {
     public final OffHeapInventory chests;
     public final Partition partition;
     public final Region[] regions;
+    public final JoinTickets joins;
     public final int surfaceY;
     private final int[] chestX, chestY, chestZ;
     private final int cellBlocks, cellsX, cellsZ, sizeX, sizeZ;
@@ -50,6 +51,7 @@ public final class World implements AutoCloseable {
         this.chestX = new int[numChests];
         this.chestY = new int[numChests];
         this.chestZ = new int[numChests];
+        this.joins = new JoinTickets(memory, 1024);
         this.partition = new Partition(cellsX, cellsZ, cfg.maxRegions(), cfg.maxCompactness());
         this.partition.initialize(cfg.initialRegions());
         this.regions = new Region[cfg.maxRegions()];
@@ -132,6 +134,16 @@ public final class World implements AutoCloseable {
             case Msg.INV_DELIVER -> ownerOfEntity(seg.get(ValueLayout.JAVA_INT, off + Msg.A));
             case Msg.INPUT -> ownerOfEntity(seg.get(ValueLayout.JAVA_INT, off + Msg.BODY + Input.ENTITY));
             default -> seg.get(ValueLayout.JAVA_INT, off + Msg.DST);
+        };
+    }
+
+    /** Where a client input record should be handled: by entity owner, or by block owner for region-addressed kinds. */
+    public int routeInput(MemorySegment seg, long off) {
+        return switch (seg.get(ValueLayout.JAVA_INT, off + Input.KIND)) {
+            case Input.JOIN -> ownerOfBlock(Math.floorDiv(seg.get(ValueLayout.JAVA_INT, off + Input.X), 1000),
+                    Math.floorDiv(seg.get(ValueLayout.JAVA_INT, off + Input.Z), 1000));
+            case Input.SET_BLOCK -> ownerOfBlock(seg.get(ValueLayout.JAVA_INT, off + Input.X), seg.get(ValueLayout.JAVA_INT, off + Input.Z));
+            default -> ownerOfEntity(seg.get(ValueLayout.JAVA_INT, off + Input.ENTITY));
         };
     }
 

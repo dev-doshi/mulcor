@@ -24,6 +24,14 @@ import java.lang.foreign.ValueLayout;
  *   <li>Other regions may read with {@link #getShared}. It acquires the section table entry, so it sees a fully
  *       initialized section and a value written in the current or a previous epoch. Cross-region block reads
  *       are therefore eventually consistent, like cross-region messages.</li>
+ *   <li>Threads outside the tick (network chunk encoders) run at any time, including during the commit phase.
+ *       They bracket their reads with {@link #beginExternalRead()} / {@link #endExternalRead()}. While any such
+ *       reader is active, {@link #reclaim()} defers to a later epoch instead of recycling sections, so an
+ *       external reader never sees a section that was reused by another chunk. The handshake is a Dekker
+ *       pair of sequentially consistent accesses (reader: increment count, then check flag; reclaimer: raise
+ *       flag, then check count), so at least one side always sees the other. Nobody blocks: a reader that
+ *       finds a reclaim in progress spins for its few microseconds, and a reclaim that finds a reader simply
+ *       skips this epoch.</li>
  * </ul>
  *
  * <p>Coordinates: {@code x ∈ [0, chunksX·16)}, {@code z ∈ [0, chunksZ·16)},
@@ -48,6 +56,10 @@ public final class BlockStorage {
     private final MemorySegment zeroSection;
     private final TaggedFreeList pool;
     private final TaggedFreeList retired;
+    /** External-reader handshake: reader count and reclaim flag, one cache line apart. */
+    private final MemorySegment guard;
+    private static final long READERS = 0, RECLAIMING = Mem.CACHE_LINE;
+    private long reclaimDeferrals;
 
     public BlockStorage(NativeMemory memory, int chunksX, int chunksZ, int minY, int sections, int poolSections) {
         this.chunksX = chunksX;
@@ -60,6 +72,7 @@ public final class BlockStorage {
         this.zeroSection = memory.allocate(SECTION_BYTES);
         this.pool = new TaggedFreeList(memory, poolSections);
         this.retired = new TaggedFreeList(memory, poolSections, false);
+        this.guard = memory.allocate(2 * Mem.CACHE_LINE, Mem.CACHE_LINE);
     }
 
     public int chunksX() { return chunksX; }
@@ -156,6 +169,42 @@ public final class BlockStorage {
      * (the engine's commit phase). Returns the number of sections reclaimed.
      */
     public int reclaim() {
+        INT.setVolatile(guard, RECLAIMING, 1);
+        if ((int) INT.getVolatile(guard, READERS) != 0) {
+            INT.setVolatile(guard, RECLAIMING, 0); // an external reader is active: try again next epoch
+            reclaimDeferrals++;
+            return 0;
+        }
+        try {
+            return reclaimSections();
+        } finally {
+            INT.setVolatile(guard, RECLAIMING, 0);
+        }
+    }
+
+    /** Number of commit phases whose reclaim was postponed by an active external reader. */
+    public long reclaimDeferrals() {
+        return reclaimDeferrals;
+    }
+
+    /**
+     * Start reading from a thread outside the tick (see the class notes). Must be paired with
+     * {@link #endExternalRead()}; keep the bracket short (one chunk column).
+     */
+    public void beginExternalRead() {
+        for (;;) {
+            INT.getAndAdd(guard, READERS, 1);
+            if ((int) INT.getVolatile(guard, RECLAIMING) == 0) return;
+            INT.getAndAdd(guard, READERS, -1);
+            while ((int) INT.getVolatile(guard, RECLAIMING) != 0) Thread.onSpinWait();
+        }
+    }
+
+    public void endExternalRead() {
+        INT.getAndAdd(guard, READERS, -1);
+    }
+
+    private int reclaimSections() {
         int n = 0;
         for (int section = retired.pop(); section >= 0; section = retired.pop()) {
             MemorySegment.copy(zeroSection, 0, slab, section * SECTION_BYTES, SECTION_BYTES);
@@ -165,10 +214,14 @@ public final class BlockStorage {
         return n;
     }
 
-    /** Pool index + 1 of a section, or 0 if it is all air. For zero-copy encoders that read {@link #slab()}. */
+    /**
+     * Pool index + 1 of a section, or 0 if it is all air. For zero-copy encoders that read {@link #slab()}; the
+     * acquire pairs with the release that published the section, so its contents are visible. Threads outside
+     * the tick must hold {@link #beginExternalRead()} while they use the returned ref.
+     */
     public int sectionRef(int chunkX, int chunkZ, int sectionY) {
         long index = (((long) chunkZ * chunksX) + chunkX) * sections + sectionY;
-        return table.get(ValueLayout.JAVA_INT, index * Integer.BYTES);
+        return (int) INT.getAcquire(table, index * Integer.BYTES);
     }
 
     /** Byte offset of a section's 4096 shorts (YZX order) in {@link #slab()}. */

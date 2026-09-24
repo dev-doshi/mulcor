@@ -4,6 +4,8 @@ package dev.mulcor.core.region;
 public final class Entities {
     public static final int BOT = 1;
     public static final int TNT = 2;
+    /** A network player: its position is client-authoritative, so the simulation only hands it between regions. */
+    public static final int PLAYER = 3;
 
     public static final int MINER = 0;
     public static final int NAVIGATOR = 1;
@@ -13,6 +15,9 @@ public final class Entities {
     public static final int IDLE = 4;
 
     public static final int TNT_RADIUS = 3;
+
+    /** EntityTable flags bit: the entity is standing on the ground. */
+    public static final int FLAG_ON_GROUND = 1;
 
     private Entities() {}
 }

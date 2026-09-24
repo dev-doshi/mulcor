@@ -88,6 +88,50 @@ public final class ChunkEncoder {
         for (int s = 0; s < blocks.sections(); s++) encodeSection(blocks, chunkX, chunkZ, s, biomeId, out);
     }
 
+    /**
+     * Encode a full vanilla column of {@code vanillaSections} sections starting at {@code vanillaMinY}. Sections
+     * outside the stored height are sent as empty air. The storage's floor must be a multiple of 16.
+     */
+    public void encodeVanillaColumn(BlockStorage blocks, int chunkX, int chunkZ, int biomeId, int vanillaMinY,
+            int vanillaSections, ByteBuf out) {
+        for (int s = 0; s < vanillaSections; s++) {
+            int y0 = vanillaMinY + 16 * s;
+            if (y0 >= blocks.minY() && y0 < blocks.maxYExclusive()) {
+                encodeSection(blocks, chunkX, chunkZ, (y0 - blocks.minY()) >> 4, biomeId, out);
+            } else {
+                out.writeShort(0);
+                writeSingle(out, Protocol.vanillaState(0));
+                writeSingle(out, biomeId);
+            }
+        }
+    }
+
+    /**
+     * Per-column heights for the WORLD_SURFACE (any block) and MOTION_BLOCKING (solid blocks) heightmaps, as
+     * {@code highest y + 1 - vanillaMinY}, or 0 for an empty column. Index = z * 16 + x.
+     */
+    public static void heightmaps(BlockStorage blocks, int chunkX, int chunkZ, int vanillaMinY, int[] surface, int[] motion) {
+        java.util.Arrays.fill(surface, 0);
+        java.util.Arrays.fill(motion, 0);
+        MemorySegment slab = blocks.slab();
+        int remaining = 2 * 256;
+        for (int s = blocks.sections() - 1; s >= 0 && remaining > 0; s--) {
+            int ref = blocks.sectionRef(chunkX, chunkZ, s);
+            if (ref == 0) continue;
+            long base = BlockStorage.sectionOffset(ref);
+            int y0 = blocks.minY() + 16 * s - vanillaMinY;
+            for (int ly = 15; ly >= 0; ly--) {
+                for (int i = 0; i < 256; i++) {
+                    if (surface[i] != 0 && motion[i] != 0) continue;
+                    int st = Short.toUnsignedInt(slab.get(ValueLayout.JAVA_SHORT, base + 2L * ((ly << 8) | i)));
+                    if (st == 0) continue;
+                    if (surface[i] == 0) { surface[i] = y0 + ly + 1; remaining--; }
+                    if (motion[i] == 0 && dev.mulcor.core.Blocks.isSolid(st)) { motion[i] = y0 + ly + 1; remaining--; }
+                }
+            }
+        }
+    }
+
     private static void writeSingle(ByteBuf out, int value) {
         out.writeByte(0);
         VarInts.write(out, value);

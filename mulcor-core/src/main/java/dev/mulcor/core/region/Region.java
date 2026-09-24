@@ -55,7 +55,7 @@ public final class Region {
     // ---- counters ----
     public long ticks, transfersOut, transfersIn, transferRejects, transferDeferred, transferCancelled;
     public long droppedItems, destroyedBlocks, explosions, forwarded, inputs, messages, overflowed, undeliverable;
-    public long stateViolations, updatesDropped, spawnFailures;
+    public long stateViolations, updatesDropped, spawnFailures, joins, leaves;
 
     public Region(int id, World world, boolean active) {
         this.id = id;
@@ -204,6 +204,13 @@ public final class Region {
         return eid;
     }
 
+    /** Spawn a network player (JOIN input) and publish its id, or the failure, through the join ticket. */
+    private void join(int x1000, int y1000, int z1000, int ticket) {
+        int eid = spawn(x1000 / 1000.0, y1000 / 1000.0, z1000 / 1000.0, Entities.PLAYER, 0);
+        if (eid >= 0) joins++;
+        world.joins.complete(ticket, eid);
+    }
+
     void despawn(int slot) {
         int eid = (int) table.id(slot);
         removeSlot(slot);
@@ -339,6 +346,10 @@ public final class Region {
                     seg.get(I, off + Input.Z), seg.get(I, off + Input.A));
             return;
         }
+        if (kind == Input.JOIN) {
+            join(seg.get(I, off + Input.X), seg.get(I, off + Input.Y), seg.get(I, off + Input.Z), seg.get(I, off + Input.A));
+            return;
+        }
         int eid = seg.get(I, off + Input.ENTITY);
         if (ownsEntity(eid)) {
             applyInput(seg, off, eid);
@@ -366,10 +377,28 @@ public final class Region {
                 else if (count < 0) Sim.putIntoChest(this, eid, a, -count);
             }
             case Input.IGNITE -> Sim.spawnTnt(this, x + 0.5, y, z + 0.5, Math.max(1, a));
-            case Input.POSITION -> table.setPos(slot,
-                    Math.clamp(x / 1000.0, 0.5, world.sizeX() - 0.5),
-                    Math.clamp(y / 1000.0, world.blocks.minY() + 1.0, world.blocks.maxYExclusive() - 1.0),
-                    Math.clamp(z / 1000.0, 0.5, world.sizeZ() - 0.5));
+            case Input.POSITION -> {
+                if ((a & Input.NO_POSITION) == 0) {
+                    table.setPos(slot,
+                            Math.clamp(x / 1000.0, 0.5, world.sizeX() - 0.5),
+                            Math.clamp(y / 1000.0, world.blocks.minY() + 1.0, world.blocks.maxYExclusive() - 1.0),
+                            Math.clamp(z / 1000.0, 0.5, world.sizeZ() - 0.5));
+                }
+                if (table.type(slot) == Entities.PLAYER) {
+                    if ((a & Input.HAS_ROTATION) != 0) {
+                        table.setAux1(slot, seg.get(I, off + Input.B)); // yaw (float bits)
+                        table.setAux2(slot, seg.get(I, off + Input.C)); // pitch (float bits)
+                    }
+                    table.setFlags(slot, (a & Input.ON_GROUND) != 0 ? Entities.FLAG_ON_GROUND : 0);
+                }
+            }
+            case Input.LEAVE -> {
+                if (table.type(slot) == Entities.PLAYER) {
+                    droppedItems += world.players.clear(eid); // the player's items drop where they stood
+                    despawn(slot);
+                    leaves++;
+                }
+            }
             default -> { }
         }
     }
@@ -394,7 +423,7 @@ public final class Region {
         int n = ingress.size();
         for (int i = 0; i < n; i++) {
             if (!take(ingress)) break;
-            int owner = world.ownerOfEntity(retry.get(I, Input.ENTITY));
+            int owner = world.routeInput(retry, 0);
             if (owner >= 0 && owner != id && !world.regions[owner].ingress.offer(retry, 0, Input.BYTES)) {
                 ingress.offer(retry, 0, Input.BYTES); // retry next commit
             }

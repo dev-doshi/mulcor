@@ -174,6 +174,64 @@ public final class Engine implements AutoCloseable {
         return owner >= 0 && world.regions[owner].ingress.offer(seg, off, Input.BYTES);
     }
 
+    /** A safe place to stand at block column (x, z): the first air block with two air blocks above it. */
+    public int surfaceAt(int x, int z) {
+        var b = world.blocks;
+        int y = b.minY();
+        b.beginExternalRead(); // may run on a network thread, concurrently with the commit phase
+        try {
+            for (int top = b.maxYExclusive() - 1; top >= b.minY(); top--) {
+                if (Blocks.isSolid(b.getShared(x, top, z))) {
+                    y = top + 1;
+                    break;
+                }
+            }
+        } finally {
+            b.endExternalRead();
+        }
+        return Math.min(y, b.maxYExclusive() - 2);
+    }
+
+    /**
+     * Thread-safe, non-blocking: ask the region owning (x, z) to spawn a network player there. {@code scratch} is
+     * a caller-owned {@link Input#BYTES}-byte segment. Returns a join ticket to {@link #pollJoin poll}, or -1 if
+     * no ticket is free or the region's ingress ring is full (retry later).
+     */
+    public int requestJoin(MemorySegment scratch, double x, double y, double z) {
+        int ticket = world.joins.reserve();
+        if (ticket < 0) return -1;
+        scratch.fill((byte) 0);
+        scratch.set(ValueLayout.JAVA_INT, Input.KIND, Input.JOIN);
+        scratch.set(ValueLayout.JAVA_INT, Input.ENTITY, -1);
+        scratch.set(ValueLayout.JAVA_INT, Input.X, (int) Math.round(x * 1000));
+        scratch.set(ValueLayout.JAVA_INT, Input.Y, (int) Math.round(y * 1000));
+        scratch.set(ValueLayout.JAVA_INT, Input.Z, (int) Math.round(z * 1000));
+        scratch.set(ValueLayout.JAVA_INT, Input.A, ticket);
+        if (!world.regions[world.routeInput(scratch, 0)].ingress.offer(scratch, 0, Input.BYTES)) {
+            world.joins.release(ticket);
+            return -1;
+        }
+        return ticket;
+    }
+
+    /**
+     * The entity id for a join ticket, or {@link JoinTickets#PENDING} / {@link JoinTickets#FAILED}. A completed
+     * ticket (id or failure) is released by this call and must not be polled again.
+     */
+    public int pollJoin(int ticket) {
+        int r = world.joins.poll(ticket);
+        if (r != JoinTickets.PENDING) world.joins.release(ticket);
+        return r;
+    }
+
+    /** Thread-safe: remove a network player whose connection closed. Returns false on backpressure (retry). */
+    public boolean requestLeave(MemorySegment scratch, int entity) {
+        scratch.fill((byte) 0);
+        scratch.set(ValueLayout.JAVA_INT, Input.KIND, Input.LEAVE);
+        scratch.set(ValueLayout.JAVA_INT, Input.ENTITY, entity);
+        return submitInput(scratch, 0);
+    }
+
     /** Thread-safe: deliver a region-addressed input (SET_BLOCK, PROBE_EMIT) to a specific region. */
     public boolean submitToRegion(int region, MemorySegment seg, long off) {
         return world.regions[region].ingress.offer(seg, off, Input.BYTES);
@@ -391,6 +449,8 @@ public final class Engine implements AutoCloseable {
             s.undeliverable += r.undeliverable;
             s.stateViolations += r.stateViolations;
             s.updatesDropped += r.updatesDropped;
+            s.joins += r.joins;
+            s.leaves += r.leaves;
             s.pending += r.pendingMessages();
         }
         s.activeRegions = world.partition.activeCount();
@@ -403,7 +463,7 @@ public final class Engine implements AutoCloseable {
     public static final class Stats {
         public long entities, transfersOut, transfersIn, transferRejects, transferDeferred, transferCancelled;
         public long droppedItems, destroyedBlocks, explosions, forwarded, inputs, messages, overflowed;
-        public long undeliverable, stateViolations, updatesDropped, pending;
+        public long undeliverable, stateViolations, updatesDropped, pending, joins, leaves;
         public long activeRegions, splits, merges, rehomed;
 
         @Override
@@ -415,7 +475,8 @@ public final class Engine implements AutoCloseable {
                     + ", forwarded=" + forwarded + ", inputs=" + inputs + ", explosions=" + explosions
                     + ", destroyed=" + destroyedBlocks + ", dropped=" + droppedItems + ", overflowed="
                     + overflowed + ", undeliverable=" + undeliverable + ", violations=" + stateViolations
-                    + ", updatesDropped=" + updatesDropped + ", pending=" + pending + "}";
+                    + ", updatesDropped=" + updatesDropped + ", joins=" + joins + ", leaves=" + leaves
+                    + ", pending=" + pending + "}";
         }
     }
 

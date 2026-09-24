@@ -25,8 +25,25 @@ public final class Input {
     public static final int SET_BLOCK = 6;
     /** Region-addressed. A = target region: send it a PROBE message this epoch. */
     public static final int PROBE_EMIT = 7;
-    /** X,Y,Z = absolute position in thousandths of a block (client movement packet). */
+    /**
+     * Client movement packet. X,Y,Z = absolute position in thousandths of a block; A = flags
+     * ({@link #NO_POSITION}, {@link #HAS_ROTATION}, {@link #ON_GROUND}); B,C = yaw, pitch as float bits.
+     */
     public static final int POSITION = 8;
+    /**
+     * Region-addressed (ENTITY ignored). Spawn a network player at X,Y,Z (thousandths of a block) and report its
+     * entity id through join ticket A (see {@code JoinTickets}).
+     */
+    public static final int JOIN = 9;
+    /** The player's connection closed: remove its entity. */
+    public static final int LEAVE = 10;
+
+    /** POSITION flag: the record carries only rotation/ground state; X,Y,Z are ignored. */
+    public static final int NO_POSITION = 1;
+    /** POSITION flag: B,C hold yaw and pitch. */
+    public static final int HAS_ROTATION = 2;
+    /** POSITION flag: the client reports being on the ground. */
+    public static final int ON_GROUND = 4;
 
     private Input() {}
 }

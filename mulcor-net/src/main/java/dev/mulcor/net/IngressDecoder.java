@@ -13,7 +13,7 @@ import java.lang.foreign.ValueLayout;
  * <p>It reads length-prefixed frames straight out of Netty's (pooled, direct) buffer and translates the hot
  * packets field by field into a 32-byte off-heap {@link Input} record, which it hands to the region ingress rings
  * through an {@link InputSink}. No packet objects, boxing or copies are created. Hot packets are dig, block
- * placement, movement and container clicks. Everything else is cold: it is counted and skipped, and could be
+ * placement, the four movement packets (position, position+rotation, rotation, on-ground) and container clicks. Everything else is cold: it is counted and skipped, and could be
  * handed to Minestom's object-based parser off the hot path.
  *
  * <p>Backpressure: if the sink rejects a record, decoding stops <i>before</i> that frame, so the caller keeps the
@@ -31,6 +31,10 @@ public final class IngressDecoder {
     private final boolean compression;
     private int entity;
     private long hot, cold, frames;
+    // Read by the connection's PlaySession on the same event loop: last reported position and the newest
+    // block-action sequence number the client is waiting to have acknowledged.
+    private int lastX1000, lastZ1000, lastSequence = -1;
+    private boolean hasPosition;
 
     /**
      * @param compression if true, frames carry the post-compression-threshold header (VarInt dataLength). Frames
@@ -48,6 +52,11 @@ public final class IngressDecoder {
     public long hotPackets() { return hot; }
     public long coldPackets() { return cold; }
     public long frames() { return frames; }
+    public boolean hasPosition() { return hasPosition; }
+    public int lastX1000() { return lastX1000; }
+    public int lastZ1000() { return lastZ1000; }
+    /** Highest block-action sequence seen, or -1. */
+    public int lastSequence() { return lastSequence; }
 
     /** Decode as many complete frames as possible, advancing {@code in}'s reader index past each consumed frame. */
     public Result decode(ByteBuf in) {
@@ -91,6 +100,7 @@ public final class IngressDecoder {
             int status = VarInts.read(in);
             long pos = in.readLong();
             in.readByte(); // face
+            lastSequence = Math.max(lastSequence, VarInts.read(in));
             if (status != 0 && status != 2) { cold++; return true; } // only start/finish digging break blocks
             return emit(Input.DIG, VarInts.blockX(pos), VarInts.blockY(pos), VarInts.blockZ(pos), 0, 0, 0);
         }
@@ -98,6 +108,8 @@ public final class IngressDecoder {
             VarInts.read(in); // hand
             long pos = in.readLong();
             int face = VarInts.read(in);
+            in.skipBytes(3 * Float.BYTES + 2); // cursor x/y/z, inside block, hit world border
+            lastSequence = Math.max(lastSequence, VarInts.read(in));
             int x = VarInts.blockX(pos), y = VarInts.blockY(pos), z = VarInts.blockZ(pos);
             switch (face) { // Minestom BlockFace order: BOTTOM, TOP, NORTH, SOUTH, WEST, EAST
                 case 0 -> y--;
@@ -112,8 +124,20 @@ public final class IngressDecoder {
         }
         if (id == Protocol.POSITION) {
             double x = in.readDouble(), y = in.readDouble(), z = in.readDouble();
-            in.readByte(); // flags
-            return emit(Input.POSITION, (int) Math.round(x * 1000), (int) Math.round(y * 1000), (int) Math.round(z * 1000), 0, 0, 0);
+            return position(x, y, z, ground(in.readByte()), 0f, 0f);
+        }
+        if (id == Protocol.POSITION_ROTATION) {
+            double x = in.readDouble(), y = in.readDouble(), z = in.readDouble();
+            float yaw = in.readFloat(), pitch = in.readFloat();
+            return position(x, y, z, Input.HAS_ROTATION | ground(in.readByte()), yaw, pitch);
+        }
+        if (id == Protocol.ROTATION) {
+            float yaw = in.readFloat(), pitch = in.readFloat();
+            int flags = Input.NO_POSITION | Input.HAS_ROTATION | ground(in.readByte());
+            return emit(Input.POSITION, 0, 0, 0, flags, Float.floatToRawIntBits(yaw), Float.floatToRawIntBits(pitch));
+        }
+        if (id == Protocol.GROUND) {
+            return emit(Input.POSITION, 0, 0, 0, Input.NO_POSITION | ground(in.readByte()), 0, 0);
         }
         if (id == Protocol.CLICK_WINDOW) {
             int window = VarInts.read(in);
@@ -128,6 +152,20 @@ public final class IngressDecoder {
             return emit(Input.CHEST, 0, 0, 0, window - 1, slot, count);
         }
         cold++;
+        return true;
+    }
+
+    private static int ground(byte flags) {
+        return (flags & 1) != 0 ? Input.ON_GROUND : 0;
+    }
+
+    private boolean position(double x, double y, double z, int flags, float yaw, float pitch) {
+        int x1000 = (int) Math.round(x * 1000), z1000 = (int) Math.round(z * 1000);
+        if (!emit(Input.POSITION, x1000, (int) Math.round(y * 1000), z1000, flags,
+                Float.floatToRawIntBits(yaw), Float.floatToRawIntBits(pitch))) return false;
+        lastX1000 = x1000;
+        lastZ1000 = z1000;
+        hasPosition = true;
         return true;
     }
 

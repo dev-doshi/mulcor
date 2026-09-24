@@ -76,6 +76,13 @@ public final class OffHeapInventory {
         }
     }
 
+    /** Atomically empty every slot of one inventory. Returns the number of items removed. */
+    public long clear(int inv) {
+        long removed = 0;
+        for (int slot = 0; slot < slots; slot++) removed += count(take(inv, slot, Integer.MAX_VALUE));
+        return removed;
+    }
+
     /** Insert items: first merge into matching stacks, then fill empty slots. Returns the count that did not fit. */
     public int insert(int inv, int item, int count) {
         if (item == 0 || count <= 0) {

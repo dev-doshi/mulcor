@@ -35,10 +35,34 @@ public final class NetServer implements AutoCloseable {
     private final TokenBucket global;
 
     /**
-     * @param entityForConnection assigns the entity a new connection controls (login is out of scope)
+     * A play-state-only server: every connection is bound to an existing entity and sends play packets straight
+     * away, with no handshake or login. Used by benchmarks and floods.
+     *
+     * @param entityForConnection assigns the entity a new connection controls
      */
     public NetServer(int port, int ioThreads, InputSink sink, IntSupplier entityForConnection,
             int perConnectionBurst, long perConnectionRate, long globalRate) throws InterruptedException {
+        this(port, ioThreads, new TokenBucket((int) Math.min(TokenBucket.MAX_CAPACITY, Math.max(1, globalRate)), globalRate),
+                (ch, global) -> {
+                    var decoder = new IngressDecoder(entityForConnection.getAsInt(), sink, false);
+                    ch.pipeline().addLast("mulcor-ingress", new IngressHandler(decoder,
+                            new TokenBucket(perConnectionBurst, perConnectionRate), global));
+                });
+    }
+
+    /**
+     * A server real Minecraft clients can join: each connection goes through the vanilla handshake, login and
+     * configuration ({@link LoginHandler}), gets a player entity from the engine, and then streams chunks and
+     * feeds its input into the region rings like any other connection.
+     */
+    public static NetServer vanilla(int port, int ioThreads, ServerContext server) throws InterruptedException {
+        java.util.Objects.requireNonNull(Vanilla.REGISTRIES); // load Minestom's registries before the first client
+        return new NetServer(port, ioThreads, server.globalBucket(),
+                (ch, global) -> ch.pipeline().addLast("mulcor-login", new LoginHandler(server)));
+    }
+
+    private NetServer(int port, int ioThreads, TokenBucket global,
+            java.util.function.BiConsumer<SocketChannel, TokenBucket> init) throws InterruptedException {
         IoHandlerFactory factory;
         Class<? extends ServerChannel> channelClass;
         if (Epoll.isAvailable()) {
@@ -54,7 +78,7 @@ public final class NetServer implements AutoCloseable {
             factory = NioIoHandler.newFactory();
             channelClass = NioServerSocketChannel.class;
         }
-        this.global = new TokenBucket((int) Math.min(TokenBucket.MAX_CAPACITY, Math.max(1, globalRate)), globalRate);
+        this.global = global;
         boss = new MultiThreadIoEventLoopGroup(1, factory);
         workers = new MultiThreadIoEventLoopGroup(ioThreads, factory);
         ServerBootstrap b = new ServerBootstrap()
@@ -65,9 +89,7 @@ public final class NetServer implements AutoCloseable {
                 .childHandler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) {
-                        var decoder = new IngressDecoder(entityForConnection.getAsInt(), sink, false);
-                        ch.pipeline().addLast("mulcor-ingress", new IngressHandler(decoder,
-                                new TokenBucket(perConnectionBurst, perConnectionRate), global));
+                        init.accept(ch, NetServer.this.global);
                     }
                 });
         channel = b.bind(port).sync().channel();

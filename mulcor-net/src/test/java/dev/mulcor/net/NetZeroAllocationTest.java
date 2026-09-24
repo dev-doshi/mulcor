@@ -84,4 +84,37 @@ class NetZeroAllocationTest {
             }
         }
     }
+
+    /** A connection's steady-state output: chunk columns streamed from off-heap storage plus the small packets. */
+    @Test
+    void playStreamingAllocatesNothing() {
+        try (var mem = new NativeMemory(); var w = new PlayWriter(256)) {
+            var s = new BlockStorage(mem, 4, 4, 0, 4, 64);
+            var rnd = new SplittableRandom(2);
+            for (int x = 0; x < 64; x++) for (int z = 0; z < 64; z++) for (int y = 0; y < 4; y++) s.set(x, y, z, Blocks.STONE);
+            for (int i = 0; i < 20_000; i++) s.set(rnd.nextInt(64), 4 + rnd.nextInt(60), rnd.nextInt(64), 1 + rnd.nextInt(20));
+            ByteBuf out = PooledByteBufAllocator.DEFAULT.directBuffer(1 << 20);
+            try {
+                int[] n = {0};
+                Runnable round = () -> {
+                    out.clear();
+                    int i = n[0]++;
+                    w.batchStart(out);
+                    w.chunk(s, i & 3, (i >> 2) & 3, out);
+                    w.batchFinished(1, out);
+                    w.viewCenter(i & 3, (i >> 2) & 3, out);
+                    w.acknowledgeBlockChange(i, out);
+                    w.keepAlive(i, out);
+                };
+                for (int i = 0; i < 20_000; i++) round.run();
+                long before = AllocationMeter.currentThread();
+                for (int i = 0; i < 3000; i++) round.run();
+                long allocated = AllocationMeter.currentThread() - before;
+                System.out.printf("play streaming: 3000 chunk packets + 15000 small packets, %d B allocated%n", allocated);
+                assertEquals(0, allocated);
+            } finally {
+                out.release();
+            }
+        }
+    }
 }

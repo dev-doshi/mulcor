@@ -31,8 +31,11 @@ final class Sim {
         int i = 0;
         while (i < t.count()) {
             boolean removed;
-            if (t.type(i) == TNT) {
+            int type = t.type(i);
+            if (type == TNT) {
                 removed = tickTnt(r, i);
+            } else if (type == PLAYER) {
+                removed = handOff(r, i); // client-authoritative: no AI, no physics
             } else {
                 if (r.ai) bot(r, i);
                 removed = physics(r, i);
@@ -74,7 +77,13 @@ final class Sim {
             t.setVel(s, vx, 0f, vz);
         }
         t.setPos(s, x, y, z);
-        int owner = r.world.ownerOfBlock((int) Math.floor(x), (int) Math.floor(z));
+        return handOff(r, s);
+    }
+
+    /** Hand the entity to the region that owns its current position, if that is not us. */
+    private static boolean handOff(Region r, int s) {
+        EntityTable t = r.table;
+        int owner = r.world.ownerOfBlock((int) Math.floor(t.x(s)), (int) Math.floor(t.z(s)));
         return owner != r.id && r.migrate(s, owner);
     }
 
