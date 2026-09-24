@@ -117,4 +117,59 @@ class NetZeroAllocationTest {
             }
         }
     }
+    /**
+     * Protocol encryption on a connection's hot path: every inbound read (a direct socket buffer) is decrypted and
+     * every outbound batch encrypted in place, through the JDK's AES/CFB8, with no heap garbage. Runs on a Netty
+     * thread, as the codec does in production (it keeps its staging array in a {@code FastThreadLocal}).
+     */
+    @Test
+    void encryptionBothWaysAllocatesNothing() throws Exception {
+        long[] result = {-1};
+        Throwable[] failure = {null};
+        Thread t = new io.netty.util.concurrent.FastThreadLocalThread(() -> {
+            try {
+                result[0] = encryptionRounds();
+            } catch (Throwable e) {
+                failure[0] = e;
+            }
+        });
+        t.start();
+        t.join();
+        if (failure[0] != null) throw new AssertionError(failure[0]);
+        assertEquals(0, result[0]);
+    }
+
+    private static long encryptionRounds() throws Exception {
+        byte[] secret = new byte[16];
+        new SplittableRandom(5).nextBytes(secret);
+        var key = Crypto.secret(secret);
+        var client = new CipherCodec(Crypto.cipher(javax.crypto.Cipher.DECRYPT_MODE, key), Crypto.cipher(javax.crypto.Cipher.ENCRYPT_MODE, key));
+        var server = new CipherCodec(Crypto.cipher(javax.crypto.Cipher.DECRYPT_MODE, key), Crypto.cipher(javax.crypto.Cipher.ENCRYPT_MODE, key));
+        byte[] payload = new byte[100_000];
+        new SplittableRandom(6).nextBytes(payload);
+        ByteBuf direct = PooledByteBufAllocator.DEFAULT.directBuffer(payload.length);
+        ByteBuf heap = PooledByteBufAllocator.DEFAULT.heapBuffer(payload.length);
+        try {
+            int[] sizes = {17, 300, 4096, 65_536, 100_000};
+            int[] n = {0};
+            Runnable round = () -> {
+                int i = n[0]++;
+                int size = sizes[i % sizes.length];
+                ByteBuf buf = (i & 1) == 0 ? direct : heap;
+                buf.clear().writeBytes(payload, 0, size);
+                client.encryptInPlace(buf); // what the server's outbound path does to a packet batch
+                server.decryptInPlace(buf); // what the server's inbound path does to a socket read
+                if (buf.getByte(size - 1) != payload[size - 1]) throw new AssertionError("round trip mismatch");
+            };
+            for (int i = 0; i < 30_000; i++) round.run();
+            long before = AllocationMeter.currentThread();
+            for (int i = 0; i < 5000; i++) round.run();
+            long allocated = AllocationMeter.currentThread() - before;
+            System.out.printf("AES/CFB8: 5000 in-place encrypt+decrypt rounds (17 B .. 100 KB), %d B allocated%n", allocated);
+            return allocated;
+        } finally {
+            direct.release();
+            heap.release();
+        }
+    }
 }

@@ -10,11 +10,15 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.lang.foreign.MemorySegment;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
 import net.kyori.adventure.text.Component;
 import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.GameMode;
@@ -27,6 +31,7 @@ import net.minestom.server.network.packet.client.common.ClientPingRequestPacket;
 import net.minestom.server.network.packet.client.configuration.ClientFinishConfigurationPacket;
 import net.minestom.server.network.packet.client.configuration.ClientSelectKnownPacksPacket;
 import net.minestom.server.network.packet.client.handshake.ClientHandshakePacket;
+import net.minestom.server.network.packet.client.login.ClientEncryptionResponsePacket;
 import net.minestom.server.network.packet.client.login.ClientLoginAcknowledgedPacket;
 import net.minestom.server.network.packet.client.login.ClientLoginStartPacket;
 import net.minestom.server.network.packet.client.status.StatusRequestPacket;
@@ -38,6 +43,7 @@ import net.minestom.server.network.packet.server.common.PluginMessagePacket;
 import net.minestom.server.network.packet.server.configuration.FinishConfigurationPacket;
 import net.minestom.server.network.packet.server.configuration.SelectKnownPacksPacket;
 import net.minestom.server.network.packet.server.configuration.UpdateEnabledFeaturesPacket;
+import net.minestom.server.network.packet.server.login.EncryptionRequestPacket;
 import net.minestom.server.network.packet.server.login.LoginDisconnectPacket;
 import net.minestom.server.network.packet.server.login.LoginSuccessPacket;
 import net.minestom.server.network.packet.server.login.SetCompressionPacket;
@@ -56,7 +62,8 @@ import net.minestom.server.registry.Registries;
  *
  * <pre>
  * HANDSHAKE ─intent 1─▶ STATUS: status request → server list JSON; ping → pong, close
- * HANDSHAKE ─intent 2─▶ LOGIN:  Login Start → Set Compression, Login Success
+ * HANDSHAKE ─intent 2─▶ LOGIN:  Login Start → [Encryption Request → client's Encryption Response → AES/CFB8 on
+ *                               → online mode: session-server hasJoined] → Set Compression, Login Success
  *                               Login Acknowledged ─▶ CONFIGURATION
  * CONFIGURATION: brand, Select Known Packs → client's known packs → registry data (only what the client lacks),
  *                tags, enabled features, Finish Configuration → client's Finish ─▶ PLAY
@@ -64,8 +71,10 @@ import net.minestom.server.registry.Registries;
  *       "waiting for chunks" → hand the channel to {@link PlaySession} + {@link IngressHandler}
  * </pre>
  *
- * Offline mode: no encryption or Mojang authentication, UUIDs are derived from the name like vanilla's
- * {@code online-mode=false}.
+ * Encryption and authentication follow {@link ServerContext#crypto()} and {@link ServerContext#auth()}: with neither,
+ * this is vanilla's {@code online-mode=false} (UUIDs derived from the name); with both, {@code online-mode=true}
+ * (UUID, name and skin come from the session server). The session-server call is asynchronous and completes back
+ * on this connection's event loop.
  */
 public final class LoginHandler extends ChannelInboundHandlerAdapter {
     private static final int MAX_FRAME = 2 * 1024 * 1024;
@@ -73,12 +82,14 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
     private final ServerContext server;
     private final MemorySegment scratch = NativeMemory.auto().allocate(Input.BYTES);
     private ConnectionState state = ConnectionState.HANDSHAKE;
-    private boolean compression, spawning;
+    private boolean compression, spawning, authenticating, loggedIn;
     private ByteBuf cumulation;
     private ChannelHandlerContext ctx;
     private Inflater inflater;
     private String name;
     private UUID uuid;
+    private GameProfile profile;
+    private byte[] verifyToken;
     private double spawnX, spawnY, spawnZ;
     private int ticket = -1;
     private long joinStarted;
@@ -133,7 +144,7 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
 
     private void drain() throws DataFormatException {
         // Once the client is in PLAY, its bytes wait here until the ingress pipeline takes over.
-        while (state != ConnectionState.PLAY && cumulation != null && cumulation.isReadable()) {
+        while (state != ConnectionState.PLAY && !authenticating && cumulation != null && cumulation.isReadable()) {
             int start = cumulation.readerIndex();
             long len = VarInts.peek(cumulation, start, cumulation.writerIndex());
             if (len == VarInts.INCOMPLETE) return;
@@ -145,7 +156,7 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
             cumulation.readerIndex(end);
             handle(parse(frame));
         }
-        cumulation.discardSomeReadBytes();
+        if (cumulation != null) cumulation.discardSomeReadBytes();
     }
 
     private ClientPacket parse(byte[] frame) throws DataFormatException {
@@ -187,15 +198,18 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
                 ctx.close();
             }
             case ClientLoginStartPacket login -> {
+                if (name != null) throw new IllegalStateException("duplicate Login Start");
                 name = login.username();
-                uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
-                if (server.compressionThreshold() > 0) {
-                    send(new SetCompressionPacket(server.compressionThreshold()));
-                    compression = true; // every later frame, both ways, carries the data-length header
+                if (server.crypto() != null) {
+                    verifyToken = server.crypto().verifyToken();
+                    send(new EncryptionRequestPacket("", server.crypto().publicKey(), verifyToken, server.onlineMode()));
+                } else {
+                    finishLogin(new GameProfile(offlineUuid(name), name));
                 }
-                send(new LoginSuccessPacket(new GameProfile(uuid, name), new UUID(0, 0)));
             }
+            case ClientEncryptionResponsePacket response -> encryptionResponse(response);
             case ClientLoginAcknowledgedPacket ignored -> {
+                if (!loggedIn) throw new IllegalStateException("Login Acknowledged before Login Success");
                 state = ConnectionState.CONFIGURATION;
                 send(PluginMessagePacket.brandPacket("Mulcor"));
                 send(new SelectKnownPacksPacket(List.of(SelectKnownPacksPacket.MINECRAFT_CORE)));
@@ -222,6 +236,76 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
             default -> { } // client settings, plugin messages, keep-alives, cookies: nothing to do
         }
         ctx.flush();
+    }
+
+    /** Vanilla's offline-mode UUID: a v3 UUID of {@code "OfflinePlayer:" + name}. */
+    static UUID offlineUuid(String name) {
+        return UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** Decrypt and check the client's secret, switch the pipeline to AES/CFB8, then authenticate (online mode). */
+    private void encryptionResponse(ClientEncryptionResponsePacket response) {
+        if (verifyToken == null) throw new IllegalStateException("unexpected Encryption Response");
+        Crypto crypto = server.crypto();
+        byte[] secretBytes;
+        Cipher decrypt, encrypt;
+        try {
+            if (!MessageDigest.isEqual(verifyToken, crypto.decrypt(response.encryptedVerifyToken()))) {
+                throw new GeneralSecurityException("verify token mismatch");
+            }
+            secretBytes = crypto.decrypt(response.sharedSecret());
+            SecretKey secret = Crypto.secret(secretBytes);
+            decrypt = Crypto.cipher(Cipher.DECRYPT_MODE, secret);
+            encrypt = Crypto.cipher(Cipher.ENCRYPT_MODE, secret);
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("encryption handshake failed: " + e.getMessage(), e);
+        }
+        verifyToken = null;
+        CipherCodec codec = new CipherCodec(decrypt, encrypt);
+        ctx.pipeline().addFirst("mulcor-cipher", codec);
+        // Anything after this frame was encrypted by the client already: decrypt it in place of the ciphertext.
+        if (cumulation.isReadable()) codec.decryptInPlace(cumulation);
+        if (!server.onlineMode()) {
+            finishLogin(new GameProfile(offlineUuid(name), name));
+            return;
+        }
+        authenticating = true;
+        String hash = crypto.serverHash("", secretBytes);
+        server.auth().hasJoined(name, hash).whenComplete((p, error) -> ctx.executor().execute(() -> {
+            authenticating = false;
+            if (!ctx.channel().isActive()) return;
+            if (error != null) {
+                disconnect("Authentication servers are down. Please try again later, sorry!");
+            } else if (p == null) {
+                disconnect("Failed to verify username!");
+            } else {
+                finishLogin(p);
+                ctx.flush();
+                try {
+                    drain(); // the client may have pipelined Login Acknowledged behind our reply
+                } catch (RuntimeException | DataFormatException e) {
+                    disconnect("Protocol error: " + e.getMessage());
+                }
+            }
+        }));
+    }
+
+    /** Set Compression (if enabled) and Login Success for an authenticated (or offline) profile. */
+    private void finishLogin(GameProfile p) {
+        profile = p;
+        name = p.name();
+        uuid = p.uuid();
+        if (server.compressionThreshold() > 0) {
+            send(new SetCompressionPacket(server.compressionThreshold()));
+            compression = true; // every later frame, both ways, carries the data-length header
+        }
+        send(new LoginSuccessPacket(p, new UUID(0, 0)));
+        loggedIn = true;
+    }
+
+    /** The authenticated profile (skin properties included in online mode), once login succeeded. */
+    public GameProfile profile() {
+        return profile;
     }
 
     /** Offer the JOIN input; if the region's ring or the ticket table is full, try again shortly. */

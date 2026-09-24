@@ -8,10 +8,18 @@
 
 ## Parallel work
 
-Another session ("Multi-core Minecraft server architecture") owns the current uncommitted working tree: login and configuration, `PlaySession`, `PlayWriter`, `JoinTickets`, the `BlockStorage` external-read guard, and `MulcorServer`/`VanillaClient`. Its next work is block-update cascades, redstone, and entity physics in `Sim`.
+Another session ("Multi-core Minecraft server architecture") built the vanilla join path, committed as `8905fb7`: login and configuration, `PlaySession`, `PlayWriter`, `JoinTickets`, the `BlockStorage` external-read guard, and `MulcorServer`/`VanillaClient`. It is now reworking redstone and entity physics. It is touching `Sim` (splitting it into physics and redstone classes), `Region`, `Msg`, `Blocks`, `Entities`, `EntityTable`/`EntityRecord` (a walk-intent column) and `Protocol` (state mapping), and adding a `CascadeBenchmark` JMH benchmark.
 
-- **M1 step 1** starts only after that session commits its WIP. This roadmap's work does not commit or rewrite those files.
-- **M3 and M5** treat that session's `Sim` redstone and physics rework as their starting input. They move it into `mulcor-game` behind the behavior table and align it with §3 (deadlines, affinity bonds, timing wheel, entity snapshots). They do not build a competing implementation. These constraints have been sent to that session.
+What that session has adopted from §3:
+- **Deadline messages:** a `DEADLINE` field on `Msg`. A cross-border effect fires at `send_epoch + delay`.
+- **Scheduled-tick queue:** a per-region **off-heap min-heap** ordered by (due epoch, priority, insertion seq). This replaces the timing wheel this document first proposed. It gives the same ordering with no bucket overflow.
+- **`NEIGHBOR_UPDATE`:** it replaces `REDSTONE`. Cascades run to a fixpoint inside a region, with a per-tick budget; overflow carries over and is counted.
+- **Border-entity snapshots:** double-buffered by epoch parity. Pushing is symmetric, and each region applies impulses only to its own entities.
+
+Still owned by this roadmap: affinity coalescing (§3.3) and the generated registry (§5.1). The interim Mulcor block ids for repeater, torch, lamp and sand move to the registry in M1.
+
+- **M1** is unblocked: the join work is committed as `8905fb7`. M1 avoids the files listed above until the redstone and physics rework lands, or coordinates with that session first.
+- **M3 and M5** treat that session's `Sim` redstone and physics rework as their starting input. They move it into `mulcor-game` behind the behavior table and add affinity bonds (§3.3) on top. They do not build a competing implementation.
 
 
 ## 0. Baseline: what exists today
@@ -29,7 +37,7 @@ Another session ("Multi-core Minecraft server architecture") owns the current un
 Measured baseline, from `build/reports/mulcor/summary.md` on an M1 with 4 workers: 5,000 bots + 5,000 clients at 615 µs mean and 921 µs p99 tick, 0 B/tick.
 
 Known debts to clear before M1 work begins:
-- The uncommitted login and play-session work (owned by the parallel session; see "Parallel work").
+- ~~The uncommitted login and play-session work~~: committed as `8905fb7`.
 - `PlayWriterTest`, which `PlayWriter`'s Javadoc cites but which does not exist.
 
 ## 1. Invariants (kept, and new ones added)
@@ -94,7 +102,7 @@ New invariants:
 ### 3.1 Region tick phases (vanilla `ServerLevel.tick` order, per region)
 
 1. Retry overflow.
-2. Drain `inbox[(e-1)&1]`. Deadline messages go into the region's **scheduled-tick wheel**.
+2. Drain `inbox[(e-1)&1]`. Deadline messages go into the region's **scheduled-tick queue**.
 3. Ingress (client inputs).
 4. Block scheduled ticks due at e.
 5. Fluid scheduled ticks due at e.
@@ -113,13 +121,13 @@ The **global phase** runs inside the commit, serial and budgeted:
 - `ColdOpRing` execution (commands, functions, scoreboards).
 - Schedule rebuild.
 
-The scheduled-tick wheel is an off-heap timing wheel per region (vanilla priority, then sub-tick order). It is fed locally and by deadline messages.
+The scheduled-tick queue is an off-heap min-heap per region, ordered by (due epoch, priority, insertion seq) like vanilla's tick ordering. It is fed locally and by deadline messages.
 
 ### 3.2 Message v2
 
 The record stays a fixed 104 B. Add a `DEADLINE` field: the target epoch, or 0 for "on receipt".
 
-Receivers with `deadline > e` insert into the timing wheel. That makes any vanilla delay ≥ 1 exact across borders (I-D): repeaters, comparators, observers (2 gt), water (5), lava (30/10), TNT fuse, sand, and piston extension (2).
+Receivers with `deadline > e` insert into the scheduled-tick queue. That makes any vanilla delay ≥ 1 exact across borders (I-D): repeaters, comparators, observers (2 gt), water (5), lava (30/10), TNT fuse, sand, and piston extension (2).
 
 New kinds:
 
@@ -157,8 +165,8 @@ New kinds:
 | Interaction | Same region (or bonded) | Across a border (unbonded or transient) |
 |---|---|---|
 | Redstone dust | Vanilla-exact wire update order within the tick | `NEIGHBOR_UPDATE` at e+1; power read by `getShared` (stale ≤ 1 epoch) |
-| Repeaters, comparators, observers | Local wheel | `SCHED_TICK` with deadline: **exact** |
-| Fluids | Local wheel | `FLUID_SPREAD` with deadline: **exact**. The target validates against its own state on arrival (vanilla re-checks too), so no conflict. |
+| Repeaters, comparators, observers | Local tick queue | `SCHED_TICK` with deadline: **exact** |
+| Fluids | Local tick queue | `FLUID_SPREAD` with deadline: **exact**. The target validates against its own state on arrival (vanilla re-checks too), so no conflict. |
 | Hoppers | Direct `OffHeapInventory` access | `HOPPER_PULL` to the container owner → it takes the items → `INV_DELIVER`-style reply. Items are in exactly one place or one in-flight message. The hopper cooldown (8 gt) starts on arrival. |
 | Explosions | Rays read blocks with `getShared`; the owner computes the destroyed set **once** at explosion time | `EXPLODE_APPLY` carries the explicit position list (no recompute, so the set is deterministic); `ENTITY_IMPULSE`/`DAMAGE` go to entity owners; chained TNT has fuse ≥ 1, so it is exact |
 | Pistons | Block events to fixpoint | Always bonded, so never cross-region beyond the transient; during the transient the piston refuses to move (vanilla-legal "blocked" outcome) |
@@ -168,6 +176,7 @@ New kinds:
 ### 3.5 Entity snapshots (cross-region and network reads)
 
 - Each region writes `snapshot[e&1]` in phase 11. It is an off-heap array of `(cell, eid, type, x, y, z, yaw, pitch, bbox, flags)` sorted by cell, plus a per-cell index.
+- The parallel session's physics rework publishes **border entities only** (id, pos, vel, box). M1 widens this to every entity, adding type, rotation and flags, because network entity tracking (§5.3) needs all of them. Physics readers can keep using a border-only view of the same buffer.
 - Readers in epoch e use `snapshot[(e-1)&1]`, which nobody writes in e. This is the same parity trick as the inboxes.
 - Network readers outside the tick check a per-buffer epoch stamp before and after reading, a seqlock-style "lapped" check. A lapped reader retries against the newer buffer and never blocks the writer.
 
@@ -310,7 +319,7 @@ New kinds:
 ## 6. Module layout
 
 ```
-mulcor-memory    FFM primitives (+ timing wheel, open-addressing maps, broadcast journal, arenas)
+mulcor-memory    FFM primitives (+ scheduled-tick min-heap, open-addressing maps, broadcast journal, arenas)
 mulcor-registry  NEW: generated vanilla tables (no runtime deps)
 mulcor-core      engine, partition (sparse cells, affinity), chunk directory/lifecycle, light, messaging, global phase
 mulcor-game      NEW: vanilla behaviours: blocks, fluids, redstone, block entities, entities, AI, combat, crafting
@@ -376,7 +385,7 @@ Every milestone runs the full set of standard gates (§8): `./gradlew check` gre
 
 - **Objectives:**
   - Block-behavior dispatch table.
-  - Scheduled-tick timing wheel.
+  - Scheduled-tick min-heap (the parallel session's implementation).
   - Deadline messages.
   - `neighborChanged`/shape updates with vanilla ordering.
   - Block events.
@@ -386,7 +395,7 @@ Every milestone runs the full set of standard gates (§8): `./gradlew check` gre
   - **Affinity coalescing** in `Partition`.
   - Real explosion algorithm with `EXPLODE_APPLY`.
   - Random ticks (crops, leaves, ice).
-- **Modules:** game (new), core (wheel, affinity, Partition), registry.
+- **Modules:** game (new), core (tick queue, affinity, Partition), registry.
 - **Performance gates:**
   - 10k active redstone components + 1k flowing water sources: 0 B/tick.
   - Megaregion cost reported.
@@ -473,7 +482,7 @@ Every milestone runs the full set of standard gates (§8): `./gradlew check` gre
 
 - "100% vanilla parity" is tracked as a measured scorecard, not a boolean. Some behaviors (update-order quirks at unbonded borders during the transient) are documented deviations.
 - Vanilla noise worldgen is **unowned**. It is a post-M6 track behind the `ChunkGenerator` SPI. Until then: flat/void generators, or pre-generated vanilla worlds loaded through Anvil.
-- A parallel session is editing `Sim`, `Region`, `Engine` and `mulcor-net` (login, redstone, physics). Merge ordering is in the "Parallel work" section at the top. Risk: conflicting designs for redstone and physics. Mitigation: share this roadmap's M3/M5 constraints with that session.
+- A parallel session is editing `Sim`, `Region`, `Engine` and `mulcor-net` (login, redstone, physics). Merge ordering is in the "Parallel work" section at the top. That session has adopted the deadline, neighbor-update and snapshot constraints; affinity and the registry remain here.
 - Minestom version drift: the codegen and differential tests catch it at upgrade time.
 - JDK 26 preview features lock the build to one JDK; this is already documented.
 - 64+ thread scaling is still unmeasured on M1 hardware; add a cloud benchmark job when available.
