@@ -118,6 +118,32 @@ class RegistryOracleTest {
         assertEquals(-1, BlockData.parse("minecraft:no_such_block", Map.of()));
     }
 
+    /** Pins of vanilla {@code isFaceSturdy} (sturdy_faces.txt, extracted from the vanilla 26.2 classes). */
+    @Test
+    void sturdyFaces() {
+        final int down = 0, up = 1, north = 2;
+        final int full = BlockData.SUPPORT_FULL, center = BlockData.SUPPORT_CENTER, rigid = BlockData.SUPPORT_RIGID;
+        assertEquals(0x3FFFF, BlockData.sturdyFaces(BlockData.defaultState(BlockId.STONE)), "full cube: all 18");
+        assertEquals(0, BlockData.sturdyFaces(BlockData.defaultState(BlockId.AIR)));
+        int bottom = BlockData.parse("minecraft:oak_slab", Map.of("type", "bottom"));
+        assertTrue(BlockData.sturdy(bottom, down, full));
+        assertFalse(BlockData.sturdy(bottom, up, full));
+        assertFalse(BlockData.sturdy(bottom, north, center));
+        int top = BlockData.parse("minecraft:oak_slab", Map.of("type", "top"));
+        assertTrue(BlockData.sturdy(top, up, full) && !BlockData.sturdy(top, down, full));
+        int post = BlockData.defaultState(BlockId.OAK_FENCE); // no connections
+        assertTrue(BlockData.sturdy(post, up, center), "fence post: a torch fits on top");
+        assertFalse(BlockData.sturdy(post, up, full), "fence post: no wire on top");
+        assertEquals(0, BlockData.sturdyFaces(BlockData.defaultState(BlockId.OAK_LEAVES)), "leaves support nothing");
+        int hopper = BlockData.defaultState(BlockId.HOPPER);
+        assertTrue(BlockData.sturdy(hopper, up, rigid), "a repeater sits on a hopper");
+        assertFalse(BlockData.sturdy(hopper, up, full), "wire special-cases hoppers");
+        int scaffolding = BlockData.defaultState(BlockId.SCAFFOLDING);
+        assertTrue(BlockData.sturdy(scaffolding, up, full));
+        assertFalse(BlockData.sturdy(scaffolding, down, full));
+        assertEquals(0, BlockData.sturdyFaces(BlockData.defaultState(BlockId.REDSTONE_WIRE)));
+    }
+
     @Test
     void itemsAndEntitiesMatch() {
         assertEquals(Material.values().size(), Registry.itemCount());

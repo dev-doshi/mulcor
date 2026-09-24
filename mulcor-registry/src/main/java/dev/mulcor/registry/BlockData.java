@@ -47,6 +47,21 @@ public final class BlockData {
     public static int outlineShape(int state) { return STATE_OUTLINE[state]; }
     public static int occlusionShape(int state) { return STATE_OCCLUSION[state]; }
     public static int interactionShape(int state) { return STATE_INTERACTION[state]; }
+
+    /** {@code SupportType} ordinals for {@link #sturdy}. */
+    public static final int SUPPORT_FULL = 0, SUPPORT_CENTER = 1, SUPPORT_RIGID = 2;
+
+    /**
+     * Vanilla {@code BlockState.isFaceSturdy(level, pos, direction, supportType)} (computed with an empty level, as for
+     * every block whose support shape does not depend on its neighbours). {@code direction} is a {@code Direction}
+     * ordinal (0 DOWN, 1 UP, 2 NORTH, 3 SOUTH, 4 WEST, 5 EAST), {@code type} one of {@code SUPPORT_*}.
+     */
+    public static boolean sturdy(int state, int direction, int type) {
+        return (STATE_STURDY[state] >>> (type * 6 + direction) & 1) != 0;
+    }
+
+    /** All 18 {@link #sturdy} bits of a state: bit {@code type * 6 + direction}. */
+    public static int sturdyFaces(int state) { return STATE_STURDY[state]; }
     public static boolean isValid(int state) { return state >= 0 && state < STATE_BLOCK.length; }
 
     // ---- per block -------------------------------------------------------------------------------------------

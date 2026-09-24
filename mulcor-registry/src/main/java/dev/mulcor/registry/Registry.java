@@ -35,6 +35,8 @@ public final class Registry {
     static final int[] STATE_FLAGS;
     static final byte[] STATE_EMISSION, STATE_OPACITY;
     static final short[] STATE_COLLISION, STATE_OUTLINE, STATE_OCCLUSION, STATE_INTERACTION;
+    /** isFaceSturdy bits per state: type (FULL, CENTER, RIGID) * 6 + direction (D, U, N, S, W, E). */
+    static final int[] STATE_STURDY;
 
     // ---- shapes: boxes as minX,minY,minZ,maxX,maxY,maxZ in block-local coordinates ----
     static final double[][] SHAPE_BOXES;
@@ -62,7 +64,7 @@ public final class Registry {
         try (InputStream raw = Registry.class.getResourceAsStream("registry.bin")) {
             if (raw == null) throw new IllegalStateException("registry.bin missing: run :mulcor-registry:generateRegistry");
             DataInputStream d = new DataInputStream(new BufferedInputStream(new GZIPInputStream(raw), 1 << 16));
-            if (d.readInt() != 0x4D524547 || d.readInt() != 1) throw new IllegalStateException("bad registry.bin header");
+            if (d.readInt() != 0x4D524547 || d.readInt() != 2) throw new IllegalStateException("bad registry.bin header");
             VERSION = d.readUTF();
             PROTOCOL = d.readInt();
             DATA_VERSION = d.readInt();
@@ -137,6 +139,7 @@ public final class Registry {
             STATE_OUTLINE = new short[ns];
             STATE_OCCLUSION = new short[ns];
             STATE_INTERACTION = new short[ns];
+            STATE_STURDY = new int[ns];
             for (int s = 0; s < ns; s++) {
                 STATE_BLOCK[s] = d.readShort();
                 STATE_FLAGS[s] = d.readInt();
@@ -146,6 +149,7 @@ public final class Registry {
                 STATE_OUTLINE[s] = d.readShort();
                 STATE_OCCLUSION[s] = d.readShort();
                 STATE_INTERACTION[s] = d.readShort();
+                STATE_STURDY[s] = d.readInt();
             }
 
             int nsh = d.readInt();

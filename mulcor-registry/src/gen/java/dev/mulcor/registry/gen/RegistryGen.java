@@ -29,7 +29,7 @@ import java.util.zip.GZIPOutputStream;
  */
 public final class RegistryGen {
     static final int MAGIC = 0x4D524547; // "MREG"
-    static final int VERSION = 1;
+    static final int VERSION = 2;
 
     // Per-state flag bits (mirrored by BlockData).
     static final int SOLID = 1, SOLID_BLOCKING = 1 << 1, BLOCKS_MOTION = 1 << 2, REDSTONE_CONDUCTOR = 1 << 3,
@@ -136,6 +136,37 @@ public final class RegistryGen {
         }
     }
 
+    /** sturdy_faces.txt: block name (without namespace) → the masks of its states, or one mask for all. */
+    private static final Map<String, int[]> STURDY_FACES = new HashMap<>();
+
+    static {
+        try (InputStream in = RegistryGen.class.getResourceAsStream("sturdy_faces.txt")) {
+            for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+                line = line.strip();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                String[] parts = line.split("\\s+");
+                List<Integer> masks = new ArrayList<>();
+                for (int i = 1; i < parts.length; i++) {
+                    String[] run = parts[i].split("\\*");
+                    int mask = Integer.parseInt(run[0], 16), n = run.length > 1 ? Integer.parseInt(run[1]) : 1;
+                    for (int k = 0; k < n; k++) masks.add(mask);
+                }
+                STURDY_FACES.put(parts[0], masks.stream().mapToInt(Integer::intValue).toArray());
+            }
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    /** isFaceSturdy mask of the {@code index}-th state of block {@code name} (states in global-id order). */
+    static int sturdyFaces(String name, int index, int stateCount) {
+        int[] masks = STURDY_FACES.get(name.startsWith("minecraft:") ? name.substring(10) : name);
+        if (masks == null) throw new IllegalStateException("sturdy_faces.txt has no entry for " + name);
+        if (masks.length == 1) return masks[0];
+        if (masks.length != stateCount) throw new IllegalStateException(name + ": " + masks.length + " sturdy masks for " + stateCount + " states");
+        return masks[index];
+    }
+
     /** Does vanilla's useShapeForLightOcclusion hold for block {@code name} in state {@code key} ("[a=b,...]")? */
     static boolean useShapeForLight(String name, String key) {
         for (String[] rule : USE_SHAPE_RULES) {
@@ -182,7 +213,7 @@ public final class RegistryGen {
         int[] stFlags = new int[stateCount], stBlock = new int[stateCount];
         int[] stEmission = new int[stateCount], stOpacity = new int[stateCount];
         int[] stCollision = new int[stateCount], stOutline = new int[stateCount], stOcclusion = new int[stateCount];
-        int[] stInteraction = new int[stateCount];
+        int[] stInteraction = new int[stateCount], stSturdy = new int[stateCount];
         shape("[]"); // shape 0 = empty
 
         Path res = out.resolve("resources/dev/mulcor/registry/registry.bin");
@@ -244,6 +275,7 @@ public final class RegistryGen {
                     stOutline[sid] = shape(str(so, "shape", str(b, "shape", "[]")));
                     stOcclusion[sid] = shape(str(so, "occlusionShape", str(b, "occlusionShape", "[]")));
                     stInteraction[sid] = shape(str(so, "interactionShape", str(b, "interactionShape", "[]")));
+                    stSturdy[sid] = sturdyFaces(name, sid - first, states.size());
                 }
                 d.writeUTF(name);
                 d.writeInt(first);
@@ -279,6 +311,7 @@ public final class RegistryGen {
                 d.writeShort(stOutline[s]);
                 d.writeShort(stOcclusion[s]);
                 d.writeShort(stInteraction[s]);
+                d.writeInt(stSturdy[s]);
             }
 
             // ---- shapes (vanilla AABBs in block-local coordinates, doubles) ----

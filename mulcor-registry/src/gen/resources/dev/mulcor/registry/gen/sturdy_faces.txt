@@ -1,0 +1,1205 @@
+# Vanilla BlockState.isFaceSturdy(EmptyBlockGetter.INSTANCE, BlockPos.ZERO, direction, supportType) for every block
+# state, as an 18-bit mask: bit = type * 6 + direction, type FULL 0, CENTER 1, RIGID 2, direction DOWN 0, UP 1,
+# NORTH 2, SOUTH 3, WEST 4, EAST 5 (Direction.values() order).
+#
+# Derived by running the vanilla 26.2 server classes (net.minecraft.world.level.block.state.BlockBehaviour.
+# BlockStateBase.isFaceSturdy over Block.BLOCK_STATE_REGISTRY); only the resulting masks are recorded here.
+#
+# Format: one line per block in registry order: "<name> <mask>" when every state has the same mask, else
+# "<name> <mask>[*<run>] ..." over the block's states in global-id order (a run repeats the mask). Masks are hex.
+air 0
+stone 3ffff
+granite 3ffff
+polished_granite 3ffff
+diorite 3ffff
+polished_diorite 3ffff
+andesite 3ffff
+polished_andesite 3ffff
+grass_block 3ffff
+dirt 3ffff
+coarse_dirt 3ffff
+podzol 3ffff
+cobblestone 3ffff
+oak_planks 3ffff
+spruce_planks 3ffff
+birch_planks 3ffff
+jungle_planks 3ffff
+acacia_planks 3ffff
+cherry_planks 3ffff
+dark_oak_planks 3ffff
+pale_oak_wood 3ffff
+pale_oak_planks 3ffff
+mangrove_planks 3ffff
+bamboo_planks 3ffff
+bamboo_mosaic 3ffff
+oak_sapling 0
+spruce_sapling 0
+birch_sapling 0
+jungle_sapling 0
+acacia_sapling 0
+cherry_sapling 0
+dark_oak_sapling 0
+pale_oak_sapling 0
+mangrove_propagule 0
+bedrock 3ffff
+water 0
+lava 0
+sand 3ffff
+suspicious_sand 3ffff
+red_sand 3ffff
+gravel 3ffff
+suspicious_gravel 3ffff
+gold_ore 3ffff
+deepslate_gold_ore 3ffff
+iron_ore 3ffff
+deepslate_iron_ore 3ffff
+coal_ore 3ffff
+deepslate_coal_ore 3ffff
+nether_gold_ore 3ffff
+oak_log 3ffff
+spruce_log 3ffff
+birch_log 3ffff
+jungle_log 3ffff
+acacia_log 3ffff
+cherry_log 3ffff
+dark_oak_log 3ffff
+pale_oak_log 3ffff
+mangrove_log 3ffff
+mangrove_roots 3ffff
+muddy_mangrove_roots 3ffff
+bamboo_block 3ffff
+stripped_spruce_log 3ffff
+stripped_birch_log 3ffff
+stripped_jungle_log 3ffff
+stripped_acacia_log 3ffff
+stripped_cherry_log 3ffff
+stripped_dark_oak_log 3ffff
+stripped_pale_oak_log 3ffff
+stripped_oak_log 3ffff
+stripped_mangrove_log 3ffff
+stripped_bamboo_block 3ffff
+oak_wood 3ffff
+spruce_wood 3ffff
+birch_wood 3ffff
+jungle_wood 3ffff
+acacia_wood 3ffff
+cherry_wood 3ffff
+dark_oak_wood 3ffff
+mangrove_wood 3ffff
+stripped_oak_wood 3ffff
+stripped_spruce_wood 3ffff
+stripped_birch_wood 3ffff
+stripped_jungle_wood 3ffff
+stripped_acacia_wood 3ffff
+stripped_cherry_wood 3ffff
+stripped_dark_oak_wood 3ffff
+stripped_pale_oak_wood 3ffff
+stripped_mangrove_wood 3ffff
+oak_leaves 0
+spruce_leaves 0
+birch_leaves 0
+jungle_leaves 0
+acacia_leaves 0
+cherry_leaves 0
+dark_oak_leaves 0
+pale_oak_leaves 0
+mangrove_leaves 0
+azalea_leaves 0
+flowering_azalea_leaves 0
+sponge 3ffff
+wet_sponge 3ffff
+glass 3ffff
+lapis_ore 3ffff
+deepslate_lapis_ore 3ffff
+lapis_block 3ffff
+dispenser 3ffff
+sandstone 3ffff
+chiseled_sandstone 3ffff
+cut_sandstone 3ffff
+note_block 3ffff
+white_bed 0
+orange_bed 0
+magenta_bed 0
+light_blue_bed 0
+yellow_bed 0
+lime_bed 0
+pink_bed 0
+gray_bed 0
+light_gray_bed 0
+cyan_bed 0
+purple_bed 0
+blue_bed 0
+brown_bed 0
+green_bed 0
+red_bed 0
+black_bed 0
+powered_rail 0
+detector_rail 0
+sticky_piston 8ec8 107d0 4dc4 20be0 1f41 2082 3ffff*6
+cobweb 0
+short_grass 0
+fern 0
+dead_bush 0
+bush 0
+short_dry_grass 0
+tall_dry_grass 0
+seagrass 0
+tall_seagrass 0
+piston 8ec8 107d0 4dc4 20be0 1f41 2082 3ffff*6
+piston_head 4104*4 20820*4 8208*4 10410*4 20c2*4 10c1*4
+white_wool 3ffff
+orange_wool 3ffff
+magenta_wool 3ffff
+light_blue_wool 3ffff
+yellow_wool 3ffff
+lime_wool 3ffff
+pink_wool 3ffff
+gray_wool 3ffff
+light_gray_wool 3ffff
+cyan_wool 3ffff
+purple_wool 3ffff
+blue_wool 3ffff
+brown_wool 3ffff
+green_wool 3ffff
+red_wool 3ffff
+black_wool 3ffff
+moving_piston 0
+dandelion 0
+golden_dandelion 0
+torchflower 0
+poppy 0
+blue_orchid 0
+allium 0
+azure_bluet 0
+red_tulip 0
+orange_tulip 0
+white_tulip 0
+pink_tulip 0
+oxeye_daisy 0
+cornflower 0
+wither_rose 0
+lily_of_the_valley 0
+brown_mushroom 0
+red_mushroom 0
+gold_block 3ffff
+iron_block 3ffff
+bricks 3ffff
+tnt 3ffff
+bookshelf 3ffff
+chiseled_bookshelf 3ffff
+acacia_shelf 8208*16 4104*16 20820*16 10410*16
+bamboo_shelf 8208*16 4104*16 20820*16 10410*16
+birch_shelf 8208*16 4104*16 20820*16 10410*16
+cherry_shelf 8208*16 4104*16 20820*16 10410*16
+crimson_shelf 8208*16 4104*16 20820*16 10410*16
+dark_oak_shelf 8208*16 4104*16 20820*16 10410*16
+jungle_shelf 8208*16 4104*16 20820*16 10410*16
+mangrove_shelf 8208*16 4104*16 20820*16 10410*16
+oak_shelf 8208*16 4104*16 20820*16 10410*16
+pale_oak_shelf 8208*16 4104*16 20820*16 10410*16
+spruce_shelf 8208*16 4104*16 20820*16 10410*16
+warped_shelf 8208*16 4104*16 20820*16 10410*16
+mossy_cobblestone 3ffff
+obsidian 3ffff
+torch 0
+wall_torch 0
+fire 0
+soul_fire 0
+spawner 3ffff
+creaking_heart 3ffff
+oak_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+redstone_wire 0
+diamond_ore 3ffff
+deepslate_diamond_ore 3ffff
+diamond_block 3ffff
+crafting_table 3ffff
+wheat 0
+farmland 1f41
+furnace 3ffff
+oak_sign 0
+spruce_sign 0
+birch_sign 0
+acacia_sign 0
+cherry_sign 0
+jungle_sign 0
+dark_oak_sign 0
+pale_oak_sign 0
+mangrove_sign 0
+bamboo_sign 0
+oak_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+ladder 8208*2 4104*2 20820*2 10410*2
+rail 0
+cobblestone_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+oak_wall_sign 0
+spruce_wall_sign 0
+birch_wall_sign 0
+acacia_wall_sign 0
+cherry_wall_sign 0
+jungle_wall_sign 0
+dark_oak_wall_sign 0
+pale_oak_wall_sign 0
+mangrove_wall_sign 0
+bamboo_wall_sign 0
+oak_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+spruce_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+birch_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+acacia_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+cherry_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+jungle_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+dark_oak_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+pale_oak_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+crimson_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+warped_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+mangrove_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+bamboo_hanging_sign 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6 40*2 c0*6
+oak_wall_hanging_sign c0
+spruce_wall_hanging_sign c0
+birch_wall_hanging_sign c0
+acacia_wall_hanging_sign c0
+cherry_wall_hanging_sign c0
+jungle_wall_hanging_sign c0
+dark_oak_wall_hanging_sign c0
+pale_oak_wall_hanging_sign c0
+mangrove_wall_hanging_sign c0
+crimson_wall_hanging_sign c0
+warped_wall_hanging_sign c0
+bamboo_wall_hanging_sign c0
+lever 0
+stone_pressure_plate 0
+iron_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+oak_pressure_plate 0
+spruce_pressure_plate 0
+birch_pressure_plate 0
+jungle_pressure_plate 0
+acacia_pressure_plate 0
+cherry_pressure_plate 0
+dark_oak_pressure_plate 0
+pale_oak_pressure_plate 0
+mangrove_pressure_plate 0
+bamboo_pressure_plate 0
+redstone_ore 3ffff
+deepslate_redstone_ore 3ffff
+redstone_torch 0
+redstone_wall_torch 0
+stone_button 0
+snow 1041*4 1f41*3 3ffff
+ice 3ffff
+snow_block 3ffff
+cactus 40
+cactus_flower 0
+clay 3ffff
+sugar_cane 0
+jukebox 3ffff
+oak_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+netherrack 3ffff
+soul_sand 3ffff
+soul_soil 3ffff
+basalt 3ffff
+polished_basalt 3ffff
+soul_torch 0
+soul_wall_torch 0
+copper_torch 0
+copper_wall_torch 0
+glowstone 3ffff
+nether_portal 0
+carved_pumpkin 3ffff
+jack_o_lantern 3ffff
+cake 40*4 0*3
+repeater 1041
+white_stained_glass 3ffff
+orange_stained_glass 3ffff
+magenta_stained_glass 3ffff
+light_blue_stained_glass 3ffff
+yellow_stained_glass 3ffff
+lime_stained_glass 3ffff
+pink_stained_glass 3ffff
+gray_stained_glass 3ffff
+light_gray_stained_glass 3ffff
+cyan_stained_glass 3ffff
+purple_stained_glass 3ffff
+blue_stained_glass 3ffff
+brown_stained_glass 3ffff
+green_stained_glass 3ffff
+red_stained_glass 3ffff
+black_stained_glass 3ffff
+oak_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+spruce_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+birch_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+jungle_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+acacia_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+cherry_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+dark_oak_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+pale_oak_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+mangrove_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+bamboo_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+stone_bricks 3ffff
+mossy_stone_bricks 3ffff
+cracked_stone_bricks 3ffff
+chiseled_stone_bricks 3ffff
+packed_mud 3ffff
+mud_bricks 3ffff
+infested_stone 3ffff
+infested_cobblestone 3ffff
+infested_stone_bricks 3ffff
+infested_mossy_stone_bricks 3ffff
+infested_cracked_stone_bricks 3ffff
+infested_chiseled_stone_bricks 3ffff
+brown_mushroom_block 3ffff
+red_mushroom_block 3ffff
+mushroom_stem 3ffff
+iron_bars fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+copper_bars fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+exposed_copper_bars fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+weathered_copper_bars fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+oxidized_copper_bars fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+waxed_copper_bars fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+waxed_exposed_copper_bars fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+waxed_weathered_copper_bars fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+waxed_oxidized_copper_bars fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+iron_chain 0*2 c0*2 0*2
+copper_chain 0*2 c0*2 0*2
+exposed_copper_chain 0*2 c0*2 0*2
+weathered_copper_chain 0*2 c0*2 0*2
+oxidized_copper_chain 0*2 c0*2 0*2
+waxed_copper_chain 0*2 c0*2 0*2
+waxed_exposed_copper_chain 0*2 c0*2 0*2
+waxed_weathered_copper_chain 0*2 c0*2 0*2
+waxed_oxidized_copper_chain 0*2 c0*2 0*2
+glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+pumpkin 3ffff
+melon 3ffff
+attached_pumpkin_stem 0
+attached_melon_stem 0
+pumpkin_stem 0
+melon_stem 0
+vine 0
+glow_lichen 0
+resin_clump 0
+oak_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+stone_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+mud_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+mycelium 3ffff
+lily_pad 40
+resin_block 3ffff
+resin_bricks 3ffff
+resin_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+resin_brick_slab 2082*2 1041*2 3ffff*2
+resin_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+chiseled_resin_bricks 3ffff
+nether_bricks 3ffff
+nether_brick_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+nether_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+nether_wart 0
+enchanting_table 1f41
+brewing_stand 40
+cauldron 2000
+water_cauldron 2000
+lava_cauldron 2000
+powder_snow_cauldron 2000
+end_portal 0
+end_portal_frame 1fc1*4 1f41*4
+end_stone 3ffff
+dragon_egg c0
+redstone_lamp 3ffff
+cocoa 0
+sandstone_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+emerald_ore 3ffff
+deepslate_emerald_ore 3ffff
+ender_chest 40
+tripwire_hook 0
+tripwire 0
+emerald_block 3ffff
+spruce_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+birch_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+jungle_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+command_block 3ffff
+beacon 3ffff
+cobblestone_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+mossy_cobblestone_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+flower_pot 40
+potted_torchflower 40
+potted_oak_sapling 40
+potted_spruce_sapling 40
+potted_birch_sapling 40
+potted_jungle_sapling 40
+potted_acacia_sapling 40
+potted_cherry_sapling 40
+potted_dark_oak_sapling 40
+potted_pale_oak_sapling 40
+potted_mangrove_propagule 40
+potted_fern 40
+potted_dandelion 40
+potted_golden_dandelion 40
+potted_poppy 40
+potted_blue_orchid 40
+potted_allium 40
+potted_azure_bluet 40
+potted_red_tulip 40
+potted_orange_tulip 40
+potted_white_tulip 40
+potted_pink_tulip 40
+potted_oxeye_daisy 40
+potted_cornflower 40
+potted_lily_of_the_valley 40
+potted_wither_rose 40
+potted_red_mushroom 40
+potted_brown_mushroom 40
+potted_dead_bush 40
+potted_cactus 40
+carrots 0
+potatoes 0
+oak_button 0
+spruce_button 0
+birch_button 0
+jungle_button 0
+acacia_button 0
+cherry_button 0
+dark_oak_button 0
+pale_oak_button 0
+mangrove_button 0
+bamboo_button 0
+skeleton_skull 40
+skeleton_wall_skull 0
+wither_skeleton_skull 40
+wither_skeleton_wall_skull 0
+zombie_head 40
+zombie_wall_head 0
+player_head 40
+player_wall_head 0
+creeper_head 40
+creeper_wall_head 0
+dragon_head 40
+dragon_wall_head 0
+piglin_head 40
+piglin_wall_head 0
+anvil c0
+chipped_anvil c0
+damaged_anvil c0
+trapped_chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+light_weighted_pressure_plate 0
+heavy_weighted_pressure_plate 0
+comparator 1041
+daylight_detector 1041
+redstone_block 3ffff
+nether_quartz_ore 3ffff
+hopper 2040 2000*4 2040 2000*4
+quartz_block 3ffff
+chiseled_quartz_block 3ffff
+quartz_pillar 3ffff
+quartz_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+activator_rail 0
+dropper 3ffff
+white_terracotta 3ffff
+orange_terracotta 3ffff
+magenta_terracotta 3ffff
+light_blue_terracotta 3ffff
+yellow_terracotta 3ffff
+lime_terracotta 3ffff
+pink_terracotta 3ffff
+gray_terracotta 3ffff
+light_gray_terracotta 3ffff
+cyan_terracotta 3ffff
+purple_terracotta 3ffff
+blue_terracotta 3ffff
+brown_terracotta 3ffff
+green_terracotta 3ffff
+red_terracotta 3ffff
+black_terracotta 3ffff
+white_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+orange_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+magenta_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+light_blue_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+yellow_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+lime_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+pink_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+gray_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+light_gray_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+cyan_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+purple_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+blue_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+brown_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+green_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+red_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+black_stained_glass_pane fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+acacia_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+cherry_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+dark_oak_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+pale_oak_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+mangrove_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+bamboo_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+bamboo_mosaic_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+slime_block 3ffff
+barrier 3ffff
+light 0
+iron_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+prismarine 3ffff
+prismarine_bricks 3ffff
+dark_prismarine 3ffff
+prismarine_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+prismarine_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+dark_prismarine_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+prismarine_slab 2082*2 1041*2 3ffff*2
+prismarine_brick_slab 2082*2 1041*2 3ffff*2
+dark_prismarine_slab 2082*2 1041*2 3ffff*2
+sea_lantern 3ffff
+hay_block 3ffff
+white_carpet 1041
+orange_carpet 1041
+magenta_carpet 1041
+light_blue_carpet 1041
+yellow_carpet 1041
+lime_carpet 1041
+pink_carpet 1041
+gray_carpet 1041
+light_gray_carpet 1041
+cyan_carpet 1041
+purple_carpet 1041
+blue_carpet 1041
+brown_carpet 1041
+green_carpet 1041
+red_carpet 1041
+black_carpet 1041
+terracotta 3ffff
+coal_block 3ffff
+packed_ice 3ffff
+sunflower 0
+lilac 0
+rose_bush 0
+peony 0
+tall_grass 0
+large_fern 0
+white_banner 0
+orange_banner 0
+magenta_banner 0
+light_blue_banner 0
+yellow_banner 0
+lime_banner 0
+pink_banner 0
+gray_banner 0
+light_gray_banner 0
+cyan_banner 0
+purple_banner 0
+blue_banner 0
+brown_banner 0
+green_banner 0
+red_banner 0
+black_banner 0
+white_wall_banner 0
+orange_wall_banner 0
+magenta_wall_banner 0
+light_blue_wall_banner 0
+yellow_wall_banner 0
+lime_wall_banner 0
+pink_wall_banner 0
+gray_wall_banner 0
+light_gray_wall_banner 0
+cyan_wall_banner 0
+purple_wall_banner 0
+blue_wall_banner 0
+brown_wall_banner 0
+green_wall_banner 0
+red_wall_banner 0
+black_wall_banner 0
+red_sandstone 3ffff
+chiseled_red_sandstone 3ffff
+cut_red_sandstone 3ffff
+red_sandstone_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+oak_slab 2082*2 1041*2 3ffff*2
+spruce_slab 2082*2 1041*2 3ffff*2
+birch_slab 2082*2 1041*2 3ffff*2
+jungle_slab 2082*2 1041*2 3ffff*2
+acacia_slab 2082*2 1041*2 3ffff*2
+cherry_slab 2082*2 1041*2 3ffff*2
+dark_oak_slab 2082*2 1041*2 3ffff*2
+pale_oak_slab 2082*2 1041*2 3ffff*2
+mangrove_slab 2082*2 1041*2 3ffff*2
+bamboo_slab 2082*2 1041*2 3ffff*2
+bamboo_mosaic_slab 2082*2 1041*2 3ffff*2
+stone_slab 2082*2 1041*2 3ffff*2
+smooth_stone_slab 2082*2 1041*2 3ffff*2
+sandstone_slab 2082*2 1041*2 3ffff*2
+cut_sandstone_slab 2082*2 1041*2 3ffff*2
+petrified_oak_slab 2082*2 1041*2 3ffff*2
+cobblestone_slab 2082*2 1041*2 3ffff*2
+brick_slab 2082*2 1041*2 3ffff*2
+stone_brick_slab 2082*2 1041*2 3ffff*2
+mud_brick_slab 2082*2 1041*2 3ffff*2
+nether_brick_slab 2082*2 1041*2 3ffff*2
+quartz_slab 2082*2 1041*2 3ffff*2
+red_sandstone_slab 2082*2 1041*2 3ffff*2
+cut_red_sandstone_slab 2082*2 1041*2 3ffff*2
+purpur_slab 2082*2 1041*2 3ffff*2
+smooth_stone 3ffff
+smooth_sandstone 3ffff
+smooth_quartz 3ffff
+smooth_red_sandstone 3ffff
+spruce_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+birch_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+jungle_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+acacia_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+cherry_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+dark_oak_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+pale_oak_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+mangrove_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+bamboo_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+spruce_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+birch_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+jungle_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+acacia_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+cherry_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+dark_oak_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+pale_oak_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+mangrove_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+bamboo_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+spruce_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+birch_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+jungle_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+acacia_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+cherry_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+dark_oak_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+pale_oak_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+mangrove_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+bamboo_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+end_rod 0*4 c0*2
+chorus_plant c0*2 40*2 c0*2 40*2 c0*2 40*2 c0*2 40*2 c0*2 40*2 c0*2 40*2 c0*2 40*2 c0*2 40*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2
+chorus_flower 40
+purpur_block 3ffff
+purpur_pillar 3ffff
+purpur_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+end_stone_bricks 3ffff
+torchflower_crop 0
+pitcher_crop 0 40 0 40 0 40 0 40 0 40
+pitcher_plant 0
+beetroots 0
+dirt_path 1f41
+end_gateway 0
+repeating_command_block 3ffff
+chain_command_block 3ffff
+frosted_ice 3ffff
+magma_block 3ffff
+nether_wart_block 3ffff
+red_nether_bricks 3ffff
+bone_block 3ffff
+structure_void 0
+observer 3ffff
+shulker_box 3ffff
+white_shulker_box 3ffff
+orange_shulker_box 3ffff
+magenta_shulker_box 3ffff
+light_blue_shulker_box 3ffff
+yellow_shulker_box 3ffff
+lime_shulker_box 3ffff
+pink_shulker_box 3ffff
+gray_shulker_box 3ffff
+light_gray_shulker_box 3ffff
+cyan_shulker_box 3ffff
+purple_shulker_box 3ffff
+blue_shulker_box 3ffff
+brown_shulker_box 3ffff
+green_shulker_box 3ffff
+red_shulker_box 3ffff
+black_shulker_box 3ffff
+white_glazed_terracotta 3ffff
+orange_glazed_terracotta 3ffff
+magenta_glazed_terracotta 3ffff
+light_blue_glazed_terracotta 3ffff
+yellow_glazed_terracotta 3ffff
+lime_glazed_terracotta 3ffff
+pink_glazed_terracotta 3ffff
+gray_glazed_terracotta 3ffff
+light_gray_glazed_terracotta 3ffff
+cyan_glazed_terracotta 3ffff
+purple_glazed_terracotta 3ffff
+blue_glazed_terracotta 3ffff
+brown_glazed_terracotta 3ffff
+green_glazed_terracotta 3ffff
+red_glazed_terracotta 3ffff
+black_glazed_terracotta 3ffff
+white_concrete 3ffff
+orange_concrete 3ffff
+magenta_concrete 3ffff
+light_blue_concrete 3ffff
+yellow_concrete 3ffff
+lime_concrete 3ffff
+pink_concrete 3ffff
+gray_concrete 3ffff
+light_gray_concrete 3ffff
+cyan_concrete 3ffff
+purple_concrete 3ffff
+blue_concrete 3ffff
+brown_concrete 3ffff
+green_concrete 3ffff
+red_concrete 3ffff
+black_concrete 3ffff
+white_concrete_powder 3ffff
+orange_concrete_powder 3ffff
+magenta_concrete_powder 3ffff
+light_blue_concrete_powder 3ffff
+yellow_concrete_powder 3ffff
+lime_concrete_powder 3ffff
+pink_concrete_powder 3ffff
+gray_concrete_powder 3ffff
+light_gray_concrete_powder 3ffff
+cyan_concrete_powder 3ffff
+purple_concrete_powder 3ffff
+blue_concrete_powder 3ffff
+brown_concrete_powder 3ffff
+green_concrete_powder 3ffff
+red_concrete_powder 3ffff
+black_concrete_powder 3ffff
+kelp 0
+kelp_plant 0
+dried_kelp_block 3ffff
+turtle_egg 40
+sniffer_egg c0
+dried_ghast 40
+dead_tube_coral_block 3ffff
+dead_brain_coral_block 3ffff
+dead_bubble_coral_block 3ffff
+dead_fire_coral_block 3ffff
+dead_horn_coral_block 3ffff
+tube_coral_block 3ffff
+brain_coral_block 3ffff
+bubble_coral_block 3ffff
+fire_coral_block 3ffff
+horn_coral_block 3ffff
+dead_tube_coral 0
+dead_brain_coral 0
+dead_bubble_coral 0
+dead_fire_coral 0
+dead_horn_coral 0
+tube_coral 0
+brain_coral 0
+bubble_coral 0
+fire_coral 0
+horn_coral 0
+dead_tube_coral_fan 0
+dead_brain_coral_fan 0
+dead_bubble_coral_fan 0
+dead_fire_coral_fan 0
+dead_horn_coral_fan 0
+tube_coral_fan 0
+brain_coral_fan 0
+bubble_coral_fan 0
+fire_coral_fan 0
+horn_coral_fan 0
+dead_tube_coral_wall_fan 0
+dead_brain_coral_wall_fan 0
+dead_bubble_coral_wall_fan 0
+dead_fire_coral_wall_fan 0
+dead_horn_coral_wall_fan 0
+tube_coral_wall_fan 0
+brain_coral_wall_fan 0
+bubble_coral_wall_fan 0
+fire_coral_wall_fan 0
+horn_coral_wall_fan 0
+sea_pickle 40
+blue_ice 3ffff
+conduit 0
+bamboo_sapling 0
+bamboo 0
+potted_bamboo 40
+void_air 0
+cave_air 0
+bubble_column 0
+polished_granite_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+smooth_red_sandstone_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+mossy_stone_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+polished_diorite_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+mossy_cobblestone_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+end_stone_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+stone_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+smooth_sandstone_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+smooth_quartz_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+granite_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+andesite_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+red_nether_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+polished_andesite_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+diorite_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+polished_granite_slab 2082*2 1041*2 3ffff*2
+smooth_red_sandstone_slab 2082*2 1041*2 3ffff*2
+mossy_stone_brick_slab 2082*2 1041*2 3ffff*2
+polished_diorite_slab 2082*2 1041*2 3ffff*2
+mossy_cobblestone_slab 2082*2 1041*2 3ffff*2
+end_stone_brick_slab 2082*2 1041*2 3ffff*2
+smooth_sandstone_slab 2082*2 1041*2 3ffff*2
+smooth_quartz_slab 2082*2 1041*2 3ffff*2
+granite_slab 2082*2 1041*2 3ffff*2
+andesite_slab 2082*2 1041*2 3ffff*2
+red_nether_brick_slab 2082*2 1041*2 3ffff*2
+polished_andesite_slab 2082*2 1041*2 3ffff*2
+diorite_slab 2082*2 1041*2 3ffff*2
+brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+prismarine_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+red_sandstone_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+mossy_stone_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+granite_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+stone_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+mud_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+nether_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+andesite_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+red_nether_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+sandstone_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+end_stone_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+diorite_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+scaffolding 2082
+loom 3ffff
+barrel 3ffff
+smoker 3ffff
+blast_furnace 3ffff
+cartography_table 3ffff
+fletching_table 3ffff
+grindstone 80*4 0*4 40*4
+lectern 1041
+smithing_table 3ffff
+stonecutter 1041
+bell cc0*4 3c0*4 80*8 0*16
+lantern 0*2 40*2
+soul_lantern 0*2 40*2
+copper_lantern 0*2 40*2
+exposed_copper_lantern 0*2 40*2
+weathered_copper_lantern 0*2 40*2
+oxidized_copper_lantern 0*2 40*2
+waxed_copper_lantern 0*2 40*2
+waxed_exposed_copper_lantern 0*2 40*2
+waxed_weathered_copper_lantern 0*2 40*2
+waxed_oxidized_copper_lantern 0*2 40*2
+campfire 1041
+soul_campfire 1041
+sweet_berry_bush 0
+warped_stem 3ffff
+stripped_warped_stem 3ffff
+warped_hyphae 3ffff
+stripped_warped_hyphae 3ffff
+warped_nylium 3ffff
+warped_fungus 0
+warped_wart_block 3ffff
+warped_roots 0
+nether_sprouts 0
+crimson_stem 3ffff
+stripped_crimson_stem 3ffff
+crimson_hyphae 3ffff
+stripped_crimson_hyphae 3ffff
+crimson_nylium 3ffff
+crimson_fungus 0
+shroomlight 3ffff
+weeping_vines 0
+weeping_vines_plant 0
+twisting_vines 0
+twisting_vines_plant 0
+crimson_roots 0
+crimson_planks 3ffff
+warped_planks 3ffff
+crimson_slab 2082*2 1041*2 3ffff*2
+warped_slab 2082*2 1041*2 3ffff*2
+crimson_pressure_plate 0
+warped_pressure_plate 0
+crimson_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+warped_fence fc0 bc0 fc0 bc0 dc0 9c0 dc0 9c0 ec0 ac0 ec0 ac0 cc0 8c0 cc0 8c0 7c0 3c0 7c0 3c0 5c0 1c0 5c0 1c0 6c0 2c0 6c0 2c0 4c0 c0 4c0 c0
+crimson_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+warped_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+crimson_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+warped_fence_gate 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2 0*2 80*2
+crimson_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+warped_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+crimson_button 0
+warped_button 0
+crimson_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+warped_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+crimson_sign 0
+warped_sign 0
+crimson_wall_sign 0
+warped_wall_sign 0
+structure_block 3ffff
+jigsaw 3ffff
+test_block 3ffff
+test_instance_block 3ffff
+composter 3ff7d
+target 3ffff
+bee_nest 3ffff
+beehive 3ffff
+honey_block 40
+honeycomb_block 3ffff
+netherite_block 3ffff
+ancient_debris 3ffff
+crying_obsidian 3ffff
+respawn_anchor 3ffff
+potted_crimson_fungus 40
+potted_warped_fungus 40
+potted_crimson_roots 40
+potted_warped_roots 40
+lodestone 3ffff
+blackstone 3ffff
+blackstone_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+blackstone_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+blackstone_slab 2082*2 1041*2 3ffff*2
+polished_blackstone 3ffff
+polished_blackstone_bricks 3ffff
+cracked_polished_blackstone_bricks 3ffff
+chiseled_polished_blackstone 3ffff
+polished_blackstone_brick_slab 2082*2 1041*2 3ffff*2
+polished_blackstone_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+polished_blackstone_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+gilded_blackstone 3ffff
+polished_blackstone_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+polished_blackstone_slab 2082*2 1041*2 3ffff*2
+polished_blackstone_pressure_plate 0
+polished_blackstone_button 0
+polished_blackstone_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+chiseled_nether_bricks 3ffff
+cracked_nether_bricks 3ffff
+quartz_bricks 3ffff
+candle 40
+white_candle 40
+orange_candle 40
+magenta_candle 40
+light_blue_candle 40
+yellow_candle 40
+lime_candle 40
+pink_candle 40
+gray_candle 40
+light_gray_candle 40
+cyan_candle 40
+purple_candle 40
+blue_candle 40
+brown_candle 40
+green_candle 40
+red_candle 40
+black_candle 40
+candle_cake 40
+white_candle_cake 40
+orange_candle_cake 40
+magenta_candle_cake 40
+light_blue_candle_cake 40
+yellow_candle_cake 40
+lime_candle_cake 40
+pink_candle_cake 40
+gray_candle_cake 40
+light_gray_candle_cake 40
+cyan_candle_cake 40
+purple_candle_cake 40
+blue_candle_cake 40
+brown_candle_cake 40
+green_candle_cake 40
+red_candle_cake 40
+black_candle_cake 40
+amethyst_block 3ffff
+budding_amethyst 3ffff
+amethyst_cluster 0*8 40*2 80*2
+large_amethyst_bud 0*8 40*2 80*2
+medium_amethyst_bud 0*8 40*2 80*2
+small_amethyst_bud 0*8 40*2 80*2
+tuff 3ffff
+tuff_slab 2082*2 1041*2 3ffff*2
+tuff_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+tuff_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+polished_tuff 3ffff
+polished_tuff_slab 2082*2 1041*2 3ffff*2
+polished_tuff_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+polished_tuff_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+chiseled_tuff 3ffff
+tuff_bricks 3ffff
+tuff_brick_slab 2082*2 1041*2 3ffff*2
+tuff_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+tuff_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+chiseled_tuff_bricks 3ffff
+sulfur 3ffff
+potent_sulfur 3ffff
+sulfur_slab 2082*2 1041*2 3ffff*2
+sulfur_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+sulfur_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+polished_sulfur 3ffff
+polished_sulfur_slab 2082*2 1041*2 3ffff*2
+polished_sulfur_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+polished_sulfur_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+sulfur_bricks 3ffff
+sulfur_brick_slab 2082*2 1041*2 3ffff*2
+sulfur_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+sulfur_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+chiseled_sulfur 3ffff
+cinnabar 3ffff
+cinnabar_slab 2082*2 1041*2 3ffff*2
+cinnabar_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+cinnabar_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+polished_cinnabar 3ffff
+polished_cinnabar_slab 2082*2 1041*2 3ffff*2
+polished_cinnabar_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+polished_cinnabar_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+cinnabar_bricks 3ffff
+cinnabar_brick_slab 2082*2 1041*2 3ffff*2
+cinnabar_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+cinnabar_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+chiseled_cinnabar 3ffff
+calcite 3ffff
+tinted_glass 3ffff
+powder_snow 0
+sculk_sensor 1041
+calibrated_sculk_sensor 1041
+sculk 3ffff
+sculk_vein 0
+sculk_catalyst 3ffff
+sculk_shrieker 1041
+copper_block 3ffff
+exposed_copper 3ffff
+weathered_copper 3ffff
+oxidized_copper 3ffff
+waxed_copper_block 3ffff
+waxed_exposed_copper 3ffff
+waxed_weathered_copper 3ffff
+waxed_oxidized_copper 3ffff
+copper_ore 3ffff
+deepslate_copper_ore 3ffff
+cut_copper 3ffff
+exposed_cut_copper 3ffff
+weathered_cut_copper 3ffff
+oxidized_cut_copper 3ffff
+waxed_cut_copper 3ffff
+waxed_exposed_cut_copper 3ffff
+waxed_weathered_cut_copper 3ffff
+waxed_oxidized_cut_copper 3ffff
+chiseled_copper 3ffff
+exposed_chiseled_copper 3ffff
+weathered_chiseled_copper 3ffff
+oxidized_chiseled_copper 3ffff
+waxed_chiseled_copper 3ffff
+waxed_exposed_chiseled_copper 3ffff
+waxed_weathered_chiseled_copper 3ffff
+waxed_oxidized_chiseled_copper 3ffff
+cut_copper_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+exposed_cut_copper_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+weathered_cut_copper_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+oxidized_cut_copper_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+waxed_cut_copper_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+waxed_exposed_cut_copper_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+waxed_weathered_cut_copper_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+waxed_oxidized_cut_copper_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+cut_copper_slab 2082*2 1041*2 3ffff*2
+exposed_cut_copper_slab 2082*2 1041*2 3ffff*2
+weathered_cut_copper_slab 2082*2 1041*2 3ffff*2
+oxidized_cut_copper_slab 2082*2 1041*2 3ffff*2
+waxed_cut_copper_slab 2082*2 1041*2 3ffff*2
+waxed_exposed_cut_copper_slab 2082*2 1041*2 3ffff*2
+waxed_weathered_cut_copper_slab 2082*2 1041*2 3ffff*2
+waxed_oxidized_cut_copper_slab 2082*2 1041*2 3ffff*2
+copper_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+exposed_copper_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+weathered_copper_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+oxidized_copper_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+waxed_copper_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+waxed_exposed_copper_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+waxed_weathered_copper_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+waxed_oxidized_copper_door 10410*2 8208*2 20820*2 8208*2 10410*2 8208*2 20820*2 8208*2 20820*2 4104*2 10410*2 4104*2 20820*2 4104*2 10410*2 4104*2 8208*2 20820*2 4104*2 20820*2 8208*2 20820*2 4104*2 20820*2 4104*2 10410*2 8208*2 10410*2 4104*2 10410*2 8208*2 10410*2
+copper_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+exposed_copper_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+weathered_copper_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+oxidized_copper_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+waxed_copper_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+waxed_exposed_copper_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+waxed_weathered_copper_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+waxed_oxidized_copper_trapdoor 8208*4 2082*4 8208*4 1041*4 4104*4 2082*4 4104*4 1041*4 20820*4 2082*4 20820*4 1041*4 10410*4 2082*4 10410*4 1041*4
+copper_grate 3ffff
+exposed_copper_grate 3ffff
+weathered_copper_grate 3ffff
+oxidized_copper_grate 3ffff
+waxed_copper_grate 3ffff
+waxed_exposed_copper_grate 3ffff
+waxed_weathered_copper_grate 3ffff
+waxed_oxidized_copper_grate 3ffff
+copper_bulb 3ffff
+exposed_copper_bulb 3ffff
+weathered_copper_bulb 3ffff
+oxidized_copper_bulb 3ffff
+waxed_copper_bulb 3ffff
+waxed_exposed_copper_bulb 3ffff
+waxed_weathered_copper_bulb 3ffff
+waxed_oxidized_copper_bulb 3ffff
+copper_chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+exposed_copper_chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+weathered_copper_chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+oxidized_copper_chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+waxed_copper_chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+waxed_exposed_copper_chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+waxed_weathered_copper_chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+waxed_oxidized_copper_chest 40*2 840*2 440*2 40*2 440*2 840*2 40*2 140*2 240*2 40*2 240*2 140*2
+copper_golem_statue 40
+exposed_copper_golem_statue 40
+weathered_copper_golem_statue 40
+oxidized_copper_golem_statue 40
+waxed_copper_golem_statue 40
+waxed_exposed_copper_golem_statue 40
+waxed_weathered_copper_golem_statue 40
+waxed_oxidized_copper_golem_statue 40
+lightning_rod 0*16 c0*8
+exposed_lightning_rod 0*16 c0*8
+weathered_lightning_rod 0*16 c0*8
+oxidized_lightning_rod 0*16 c0*8
+waxed_lightning_rod 0*16 c0*8
+waxed_exposed_lightning_rod 0*16 c0*8
+waxed_weathered_lightning_rod 0*16 c0*8
+waxed_oxidized_lightning_rod 0*16 c0*8
+dripstone_block 3ffff
+pointed_dripstone c0*4 40*2 80*2 c0*8 5c0*4
+sulfur_spike c0*4 40*2 80*2 c0*8 5c0*4
+cave_vines 0
+cave_vines_plant 0
+spore_blossom 0
+azalea 20c2
+flowering_azalea 20c2
+moss_carpet 1041
+pink_petals 0
+wildflowers 0
+leaf_litter 0
+moss_block 3ffff
+big_dripleaf 0
+big_dripleaf_stem 0
+small_dripleaf 0
+hanging_roots 0
+rooted_dirt 3ffff
+mud 3ffff
+deepslate 3ffff
+cobbled_deepslate 3ffff
+cobbled_deepslate_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+cobbled_deepslate_slab 2082*2 1041*2 3ffff*2
+cobbled_deepslate_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+polished_deepslate 3ffff
+polished_deepslate_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+polished_deepslate_slab 2082*2 1041*2 3ffff*2
+polished_deepslate_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+deepslate_tiles 3ffff
+deepslate_tile_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+deepslate_tile_slab 2082*2 1041*2 3ffff*2
+deepslate_tile_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+deepslate_bricks 3ffff
+deepslate_brick_stairs 6186*2 16596*2 269a6*2 2082*4 5145*2 15555*2 25965*2 1041*4 a28a*2 2aaaa*2 1a69a*2 2082*4 9249*2 29a69*2 19659*2 1041*4 12492*2 1a69a*2 16596*2 2082*4 11451*2 19659*2 15555*2 1041*4 228a2*2 269a6*2 2aaaa*2 2082*4 21861*2 25965*2 29a69*2 1041*4
+deepslate_brick_slab 2082*2 1041*2 3ffff*2
+deepslate_brick_wall c0 4c0*2 c0 4c0*2 0 4c0*2 0 4c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 2c0 6c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 1c0 5c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 3c0 7c0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 8c0 cc0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 ac0 ec0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 9c0 dc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2 bc0 fc0*2
+chiseled_deepslate 3ffff
+cracked_deepslate_bricks 3ffff
+cracked_deepslate_tiles 3ffff
+infested_deepslate 3ffff
+smooth_basalt 3ffff
+raw_iron_block 3ffff
+raw_copper_block 3ffff
+raw_gold_block 3ffff
+potted_azalea_bush 40
+potted_flowering_azalea_bush 40
+ochre_froglight 3ffff
+verdant_froglight 3ffff
+pearlescent_froglight 3ffff
+frogspawn 0
+reinforced_deepslate 3ffff
+decorated_pot c0
+crafter 3ffff
+trial_spawner 3ffff
+vault 3ffff
+heavy_core 40
+pale_moss_block 3ffff
+pale_moss_carpet 1041*81 0*81
+pale_hanging_moss 0
+open_eyeblossom 0
+closed_eyeblossom 0
+potted_open_eyeblossom 40
+potted_closed_eyeblossom 40
+firefly_bush 0
