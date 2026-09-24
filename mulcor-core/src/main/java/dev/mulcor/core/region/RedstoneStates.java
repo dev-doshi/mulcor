@@ -47,7 +47,7 @@ final class RedstoneStates {
 
     static final int OTHER = 0, WIRE = 1, REPEATER = 2, TORCH = 3, WALL_TORCH = 4, LAMP = 5, TNT = 6,
             REDSTONE_BLOCK = 7, FALLING = 8, COMPARATOR = 9, OBSERVER = 10, LEVER = 11, BUTTON = 12,
-            PISTON = 13, PISTON_HEAD = 14, MOVING_PISTON = 15;
+            PISTON = 13, PISTON_HEAD = 14, MOVING_PISTON = 15, LIQUID = 16;
     static final int NONE = 0, SIDE = 1, UP_SIDE = 2;
     static final int POWERED_BIT = 1 << 6, LIT_BIT = 1 << 6, LOCKED_BIT = 1 << 5, SUBTRACT_BIT = 1 << 5, WOODEN_BIT = 1 << 3;
     /** Pistons, heads and moving pistons: bits 0-2 {@code facing}; bit 6 {@code extended} (base); bit 7 sticky. */
@@ -170,6 +170,10 @@ final class RedstoneStates {
         }
 
         analogOutputs(blocks);
+
+        for (int b : new int[] {BlockId.WATER, BlockId.LAVA}) {
+            for (int s = BlockData.firstState(b), n = s + BlockData.stateCount(b); s < n; s++) KIND[s] = LIQUID;
+        }
 
         UNWATERLOGGED = new int[states];
         for (int b = 0; b < blocks; b++) {

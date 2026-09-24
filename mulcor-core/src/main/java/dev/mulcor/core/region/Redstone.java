@@ -14,8 +14,8 @@ import java.lang.foreign.ValueLayout;
  * {@link NeighborUpdater}), shape updates, {@code SignalGetter}, {@code RedStoneWireBlock} with
  * {@code DefaultRedstoneWireEvaluator}, {@code DiodeBlock}/{@code RepeaterBlock}, {@code RedstoneTorchBlock} and
  * {@code RedstoneWallTorchBlock}, {@code ComparatorBlock}, {@code ObserverBlock}, {@code LeverBlock},
- * {@code ButtonBlock}, pistons (see {@link Pistons}), {@code RedstoneLampBlock}, {@code TntBlock}, {@code FallingBlock} and {@code LevelTicks}
- * ordering. Method names follow Mojang's; each cites the vanilla method it reproduces.
+ * {@code ButtonBlock}, {@code RedstoneLampBlock}, {@code TntBlock}, {@code FallingBlock} and {@code LevelTicks}
+ * ordering; pistons and fluids hook in from here ({@link Pistons}, {@link Fluids}). Method names follow Mojang's; each cites the vanilla method it reproduces.
  *
  * <h2>Time</h2>
  * {@code r.gameTime} is vanilla's {@code level.getGameTime()} as seen by the code running: the epoch during block
@@ -226,6 +226,7 @@ final class Redstone {
                 if (hasNeighborSignal(r, x, y, z)) primeAndRemove(r, x, y, z);
             }
             case PISTON -> Pistons.neighborChanged(r, st, x, y, z);
+            case LIQUID -> Fluids.liquidChanged(r, st, x, y, z); // LiquidBlock.neighborChanged
             case PISTON_HEAD -> Pistons.headNeighborChanged(r, st, x, y, z);
             default -> {}
         }
@@ -262,6 +263,7 @@ final class Redstone {
             }
             case FALLING -> scheduleTick(r, x, y, z, block(st), FALL_DELAY, NORMAL); // FallingBlock.onPlace
             case PISTON -> Pistons.onPlace(r, st, x, y, z, old);
+            case LIQUID -> Fluids.liquidChanged(r, st, x, y, z); // LiquidBlock.onPlace
             default -> {}
         }
     }
@@ -414,6 +416,10 @@ final class Redstone {
                 int c = connected(st);
                 return dir == (c ^ 1) && !sturdy(neighborState, c, FULL) ? AIR : st;
             }
+            case LIQUID -> {
+                Fluids.liquidShapeChanged(r, st, x, y, z, neighborState); // LiquidBlock.updateShape
+                return st;
+            }
             case PISTON_HEAD -> {
                 // PistonHeadBlock.updateShape: the side toward the base changed and it no longer holds the head
                 return dir == (facing(st) ^ 1) && !Pistons.headCanSurviveOn(st, neighborState) ? AIR : st;
@@ -432,6 +438,8 @@ final class Redstone {
                 return st;
             }
             default -> {
+                // Waterlogged blocks (and kelp, seagrass) re-tick their water on every shape update
+                if (FluidStates.container(st) != FluidStates.NOT_CONTAINER) Fluids.containerShapeChanged(r, st, x, y, z);
                 return st;
             }
         }

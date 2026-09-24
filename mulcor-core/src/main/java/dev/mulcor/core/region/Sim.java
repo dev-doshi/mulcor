@@ -326,6 +326,9 @@ final class Sim {
                     (int) seg.get(ValueLayout.JAVA_LONG, off + Msg.WORD), seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE));
             case Msg.SCHEDULED_TICK -> Redstone.receiveScheduledTick(r, a, b, c, seg.get(I, off + Msg.E), d,
                     seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE));
+            case Msg.FLUID_TICK -> Fluids.receiveTick(r, a, b, c, seg.get(I, off + Msg.E), seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE));
+            case Msg.FLUID_SPREAD -> Fluids.receiveSpread(r, a, b, c, d, seg.get(I, off + Msg.E), seg.get(I, off + Msg.F),
+                    seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE));
             case Msg.INV_TAKE -> {
                 long taken = r.world.chests.take(a, b, c);
                 deliver(r, d, OffHeapInventory.item(taken), OffHeapInventory.count(taken));

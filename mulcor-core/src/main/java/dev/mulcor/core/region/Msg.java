@@ -56,6 +56,13 @@ public final class Msg {
      * DEADLINE = the sender's game time.
      */
     public static final int SHAPE_UPDATE = 13;
+    /** A,B,C = x,y,z; E = fluid type ({@code FluidStates}); DEADLINE = due epoch. A fluid tick that changed owner. */
+    public static final int FLUID_TICK = 14;
+    /**
+     * A,B,C = x,y,z a fluid spreads into across a region border; D = direction it flows; E = the packed fluid state;
+     * F = the spreading fluid's group; DEADLINE = the sender's game time.
+     */
+    public static final int FLUID_SPREAD = 15;
     /** Positions per {@link #EXPLOSION_BLOCKS} message. */
     public static final int BATCH = dev.mulcor.memory.EntityRecord.BYTES / 8;
 

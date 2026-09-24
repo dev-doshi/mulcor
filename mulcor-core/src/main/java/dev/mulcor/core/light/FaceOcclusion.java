@@ -117,7 +117,7 @@ public final class FaceOcclusion {
      * between rectangle edges; in each strip, the y intervals of rectangles spanning it must cover [0, 1].
      * Allocation-free: at most a few dozen rectangles, scanned in place.
      */
-    static boolean covers(double[] a, double[] b) {
+    public static boolean covers(double[] a, double[] b) {
         double x = 0;
         while (x < 1 - EPS) {
             // Next strip end: smallest rectangle edge > x.

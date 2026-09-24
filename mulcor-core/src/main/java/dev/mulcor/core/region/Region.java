@@ -60,6 +60,12 @@ public final class Region {
     final int movingPistonCapacity;
     /** Scratch for {@link Pistons}. */
     final PistonScratch piston = new PistonScratch();
+    /** Scheduled fluid ticks ({@code ServerLevel.fluidTicks}), run after the block ticks. Keyed by fluid type. */
+    final ScheduledTicks fluidTicks;
+    /** Past the fluid-tick phase (fluid ticks scheduled now run next epoch). */
+    boolean fluidTicksDone;
+    /** Scratch for {@link Fluids}. */
+    final FluidScratch fluid = new FluidScratch();
     /** {@code ServerLevel.isHandlingTick}: from the block ticks through the block events. */
     boolean handlingTick;
     /** Scratch for {@link Redstone#hashSetOrder}. */
@@ -107,7 +113,7 @@ public final class Region {
     public long stateViolations, updatesDropped, spawnFailures, joins, leaves;
     public long blockUpdates, crossUpdates, scheduledTicks, redstoneChanges, tntPrimed, updatesDeferred, ticksDropped;
     public long pushes, borderPushes, destroyedOther;
-    public long blockEventsRun, blockEventsDropped, pistonMoves, pistonsBlocked;
+    public long blockEventsRun, blockEventsDropped, pistonMoves, pistonsBlocked, fluidTicksRun;
     /** Scratch set of positions one explosion destroys (packed position + 1; 0 = empty). */
     final long[] blastSet = new long[1 << 13];
     final int[] blastOwners = new int[16];
@@ -130,6 +136,7 @@ public final class Region {
         this.overflow = new OffHeapRing(mem, cfg.inboxCapacity(), Msg.BYTES);
         this.blockTicks = new ScheduledTicks(mem, 16384);
         this.blockEvents = new BlockEventQueue(mem, 8192);
+        this.fluidTicks = new ScheduledTicks(mem, 16384);
         this.movingPistonCapacity = 8192;
         this.movingPistons = new MovingPistons(movingPistonCapacity);
         this.gridNext = new int[cfg.regionEntityCapacity()];
@@ -214,11 +221,13 @@ public final class Region {
         gameTime = epoch - 1;
         inBlockTicks = false;
         blockTicksDone = false;
+        fluidTicksDone = false;
         retryOverflow();
         messages += inbox(epoch - 1).drain(onMessage, Integer.MAX_VALUE);
         ingress.drain(onInput, cfg.ingressBudget());
         handlingTick = true;
         Redstone.runScheduled(this);     // ServerLevel.tick: block ticks at gameTime = epoch
+        Fluids.runTicks(this);           // then fluid ticks
         Pistons.runBlockEvents(this);    // ServerLevel.runBlockEvents (pistons), to fixpoint
         handlingTick = false;
         Physics.pushAll(this);           // entity pushing (momentum transfer), from start-of-tick positions
@@ -239,6 +248,7 @@ public final class Region {
         gameTime = lastEpoch;
         inBlockTicks = false;
         blockTicksDone = true;
+        fluidTicksDone = true;
         return Redstone.commandSetBlock(this, x, y, z, state);
     }
 
@@ -248,6 +258,7 @@ public final class Region {
         gameTime = lastEpoch;
         inBlockTicks = false;
         blockTicksDone = true;
+        fluidTicksDone = true;
         return Redstone.use(this, x, y, z);
     }
 
@@ -601,6 +612,13 @@ public final class Region {
 
     /** Commit phase: hand scheduled ticks to {@code to} (merge), keeping their due epoch and priority. */
     private void moveTicks(Region to) {
+        while (fluidTicks.size() > 0) {
+            long due = fluidTicks.peekDue();
+            int priority = fluidTicks.peekPriority();
+            int type = fluidTicks.peekBlock();
+            long pos = fluidTicks.poll();
+            if (!to.fluidTicks.schedule(due, priority, pos, type) && !to.fluidTicks.isScheduled(pos, type)) to.ticksDropped++;
+        }
         while (blockTicks.size() > 0) {
             long due = blockTicks.peekDue();
             int priority = blockTicks.peekPriority();
@@ -620,6 +638,14 @@ public final class Region {
             long pos = blockTicks.poll();
             Region to = world.regions[world.ownerOfBlock(ScheduledTicks.x(pos), ScheduledTicks.z(pos))];
             if (to == this || (!to.blockTicks.schedule(due, priority, pos, block) && !to.blockTicks.isScheduled(pos, block))) ticksDropped++;
+        }
+        while (fluidTicks.size() > 0) {
+            long due = fluidTicks.peekDue();
+            int priority = fluidTicks.peekPriority();
+            int type = fluidTicks.peekBlock();
+            long pos = fluidTicks.poll();
+            Region to = world.regions[world.ownerOfBlock(ScheduledTicks.x(pos), ScheduledTicks.z(pos))];
+            if (to == this || (!to.fluidTicks.schedule(due, priority, pos, type) && !to.fluidTicks.isScheduled(pos, type))) ticksDropped++;
         }
         // Block events and moving pistons go to whoever owns their position now.
         for (int n = blockEvents.size(); n > 0 && blockEvents.poll(); n--) {

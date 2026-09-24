@@ -157,7 +157,7 @@ public final class World implements AutoCloseable {
             case Msg.TRANSFER -> ownerOfBlock(
                     (int) Math.floor(seg.get(ValueLayout.JAVA_DOUBLE, off + Msg.BODY + EntityRecord.X)),
                     (int) Math.floor(seg.get(ValueLayout.JAVA_DOUBLE, off + Msg.BODY + EntityRecord.Z)));
-            case Msg.BLOCK_BREAK, Msg.BLOCK_PLACE, Msg.NEIGHBOR_UPDATE, Msg.SCHEDULED_TICK ->
+            case Msg.BLOCK_BREAK, Msg.BLOCK_PLACE, Msg.NEIGHBOR_UPDATE, Msg.SCHEDULED_TICK, Msg.FLUID_TICK, Msg.FLUID_SPREAD ->
                     ownerOfBlock(seg.get(ValueLayout.JAVA_INT, off + Msg.A), seg.get(ValueLayout.JAVA_INT, off + Msg.C));
             case Msg.INV_TAKE, Msg.INV_PUT -> ownerOfChest(seg.get(ValueLayout.JAVA_INT, off + Msg.A));
             case Msg.INV_DELIVER -> ownerOfEntity(seg.get(ValueLayout.JAVA_INT, off + Msg.A));
