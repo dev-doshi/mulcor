@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mulcor.core.Blocks;
+import dev.mulcor.core.light.LightEngine;
 import dev.mulcor.memory.BlockStorage;
+import dev.mulcor.memory.LightStorage;
 import dev.mulcor.memory.NativeMemory;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -33,6 +35,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Everything {@link PlayWriter} emits is parsed back with Minestom's (vanilla-mirroring) serializers. */
 class PlayWriterTest {
     private final NativeMemory mem = new NativeMemory();
+    private LightStorage blockLight, skyLight;
 
     @AfterEach
     void close() {
@@ -47,10 +50,14 @@ class PlayWriterTest {
             if (x == 20 && z == 5) continue; // one empty column
             s.set(x, 0, z, Blocks.BEDROCK);
             for (int y = 1; y < 4; y++) s.set(x, y, z, rnd.nextBoolean() ? Blocks.STONE : Blocks.DIRT);
-            if (rnd.nextInt(5) == 0) s.set(x, 4, z, Blocks.WIRE + rnd.nextInt(16)); // not motion-blocking
+            if (rnd.nextInt(5) == 0) s.set(x, 4, z, Blocks.wire(rnd.nextInt(16))); // not motion-blocking
         }
         for (int i = 0; i < 4000; i++) s.set(16 + rnd.nextInt(16), 16 + rnd.nextInt(48), rnd.nextInt(16), 1 + rnd.nextInt(300));
         s.set(3, 63, 3, Blocks.TNT);
+        s.set(40, 10, 20, dev.mulcor.registry.BlockData.defaultState(dev.mulcor.registry.BlockId.GLOWSTONE));
+        blockLight = new LightStorage(mem, 3, 2, 0, 4, 3 * 2 * 6, 0);
+        skyLight = new LightStorage(mem, 3, 2, 0, 4, 3 * 2 * 6, 0);
+        new LightEngine(s, blockLight, skyLight).relightAll();
         return s;
     }
 
@@ -77,6 +84,29 @@ class PlayWriterTest {
         return body;
     }
 
+    /**
+     * Every light section is in exactly one of the two masks; arrays hold the stored nibbles (above the storage,
+     * {@code above}; below it, 0), and empty-mask sections are all zero.
+     */
+    private static void assertLight(int cx, int cz, java.util.BitSet mask, java.util.BitSet empty,
+            java.util.List<byte[]> arrays, LightStorage ls, int above) {
+        int wireMin = (Vanilla.MIN_Y >> 4) - 1, k = 0;
+        for (int i = 0; i < Vanilla.SECTIONS + 2; i++) {
+            int sy = wireMin + i;
+            assertTrue(mask.get(i) ^ empty.get(i), "section " + sy + " in exactly one mask");
+            byte[] a = mask.get(i) ? arrays.get(k++) : new byte[LightStorage.SECTION_BYTES];
+            assertEquals(LightStorage.SECTION_BYTES, a.length);
+            for (int y = 0; y < 16; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) {
+                int idx = y << 8 | z << 4 | x;
+                int got = (a[idx >> 1] >> ((idx & 1) << 2)) & 15;
+                int wy = sy * 16 + y;
+                int want = wy >= ls.maxYExclusive() ? above : wy < ls.minY() ? 0 : ls.get(cx * 16 + x, wy, cz * 16 + z);
+                assertEquals(want, got, "light at " + (cx * 16 + x) + "," + wy + "," + (cz * 16 + z));
+            }
+        }
+        assertEquals(k, arrays.size());
+    }
+
     private static int packed(long[] longs, int bits, int i) {
         int perLong = 64 / bits;
         return (int) ((longs[i / perLong] >>> ((i % perLong) * bits)) & ((1L << bits) - 1));
@@ -90,7 +120,7 @@ class PlayWriterTest {
             for (int cx = 0; cx < 3; cx++) for (int cz = 0; cz < 2; cz++) {
                 ByteBuf out = PooledByteBufAllocator.DEFAULT.directBuffer();
                 try {
-                    w.chunk(s, cx, cz, out);
+                    w.chunk(s, blockLight, skyLight, cx, cz, out);
                     byte[] body = unframe(out, threshold);
                     NetworkBuffer nb = NetworkBuffer.wrap(body, 0, body.length, Vanilla.REGISTRIES);
                     assertEquals(Protocol.OUT_CHUNK_DATA, nb.read(NetworkBuffer.VAR_INT));
@@ -101,10 +131,8 @@ class PlayWriterTest {
                     assertSections(s, cx, cz, p.chunkData().data());
                     assertHeightmaps(s, cx, cz, p);
                     var light = p.lightData();
-                    assertEquals(Vanilla.SECTIONS + 2, light.skyMask().cardinality());
-                    assertEquals(Vanilla.SECTIONS + 2, light.skyLight().size());
-                    for (byte[] a : light.skyLight()) for (byte b : a) assertEquals((byte) 0xFF, b);
-                    assertTrue(light.blockLight().isEmpty());
+                    assertLight(cx, cz, light.skyMask(), light.emptySkyMask(), light.skyLight(), skyLight, 15);
+                    assertLight(cx, cz, light.blockMask(), light.emptyBlockMask(), light.blockLight(), blockLight, 0);
                     assertTrue(p.chunkData().blockEntities().isEmpty());
                 } finally {
                     out.release();
@@ -142,7 +170,7 @@ class PlayWriterTest {
             for (int y = s.maxYExclusive() - 1; y >= s.minY(); y--) {
                 int st = s.get(cx * 16 + x, y, cz * 16 + z);
                 if (ws == 0 && st != 0) ws = y + 1 - Vanilla.MIN_Y;
-                if (mb == 0 && Blocks.isSolid(st)) mb = y + 1 - Vanilla.MIN_Y;
+                if (mb == 0 && Blocks.isMotionBlocking(st)) mb = y + 1 - Vanilla.MIN_Y; // Heightmap.Types.MOTION_BLOCKING
             }
             assertEquals(ws, packed(surface, bits, z * 16 + x), "WORLD_SURFACE " + x + "," + z);
             assertEquals(mb, packed(motion, bits, z * 16 + x), "MOTION_BLOCKING " + x + "," + z);

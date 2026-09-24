@@ -1,0 +1,28 @@
+# Block states for which vanilla's BlockBehaviour.useShapeForLightOcclusion(state) returns true, i.e. light occlusion
+# follows the block's occlusion shape per face instead of treating it as empty.
+#
+# Derived from the vanilla 26.2 classes: every Block subclass that overrides useShapeForLightOcclusion, and every
+# block registered in Blocks.<clinit> (including WeatheringCopperCollection and the helper registrations) whose class
+# inherits such an override:
+#   SlabBlock (type != DOUBLE), StairBlock, ShelfBlock, SnowLayerBlock, FarmlandBlock, DirtPathBlock,
+#   DaylightDetectorBlock, EnchantingTableBlock, EndPortalFrameBlock, LecternBlock, SculkSensorBlock
+#   (+ calibrated), SculkShriekerBlock, StonecutterBlock, PistonBaseBlock (EXTENDED), PistonHeadBlock.
+#
+# Format: <name or *suffix> [property=value | property!=value]
+*_slab type!=double
+*_stairs
+*_shelf
+minecraft:snow
+minecraft:farmland
+minecraft:dirt_path
+minecraft:daylight_detector
+minecraft:enchanting_table
+minecraft:end_portal_frame
+minecraft:lectern
+minecraft:sculk_sensor
+minecraft:calibrated_sculk_sensor
+minecraft:sculk_shrieker
+minecraft:stonecutter
+minecraft:piston extended=true
+minecraft:sticky_piston extended=true
+minecraft:piston_head

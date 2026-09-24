@@ -2,6 +2,9 @@ package dev.mulcor.core.region;
 
 import dev.mulcor.core.EngineConfig;
 import dev.mulcor.core.World;
+import dev.mulcor.core.light.LightEngine;
+import dev.mulcor.core.light.LightService;
+import dev.mulcor.memory.BlockStorage;
 import dev.mulcor.memory.EntityDirectory;
 import dev.mulcor.memory.EntityRecord;
 import dev.mulcor.memory.EntityTable;
@@ -53,6 +56,13 @@ public final class Region {
     private final int snapshotCapacity;
     private final MemorySegment retry;
     final Pathfinder path = new Pathfinder();
+    /** Scratch for {@link Collision}: the collided movement, and step-up candidate heights. */
+    final double[] collideOut = new double[3];
+    final float[] stepCandidates = new float[64];
+    /** Positions whose block change may alter light, packed by {@link #packPos}; drained by the commit phase. */
+    private final long[] lightQueue = new long[8192];
+    private int lightQueued;
+    private boolean lightOverflow;
     private final OffHeapRing.SlotHandler onMessage = this::handleMessage;
     private final OffHeapRing.SlotHandler onInput = this::handleInput;
 
@@ -111,6 +121,37 @@ public final class Region {
         this.samples = new long[cap];
         this.sampleMask = cap - 1;
         this.state = new StateWord(active ? IDLE : INACTIVE);
+    }
+
+    // ---- block writes ------------------------------------------------------------------------------------------
+
+    /**
+     * The one way region code changes a block this region owns: stores it and records what follows from it (light
+     * re-evaluation now, client block-change events next). Returns the previous state, or
+     * {@link BlockStorage#FAILED} if the position is out of bounds. Never call {@code world.blocks.set} directly.
+     */
+    public int setBlock(int x, int y, int z, int state) {
+        int old = world.blocks.set(x, y, z, state);
+        if (old != BlockStorage.FAILED && old != state && LightEngine.affectsLight(old, state)) {
+            if (lightQueued < lightQueue.length) lightQueue[lightQueued++] = packPos(x, y, z);
+            else lightOverflow = true;
+        }
+        return old;
+    }
+
+    private long packPos(int x, int y, int z) {
+        return LightService.pack(x, y, z, world.blocks.minY());
+    }
+
+    /**
+     * Hand this region's queued light checks to the light thread (commit phase: no region is running). An
+     * overflowed queue asks for a full relight instead.
+     */
+    public void drainLight(LightService light) {
+        if (lightOverflow) light.requestRelightAll();
+        else for (int i = 0; i < lightQueued; i++) light.offer(lightQueue[i]);
+        lightQueued = 0;
+        lightOverflow = false;
     }
 
     // ---- state machine -----------------------------------------------------------------------------------------

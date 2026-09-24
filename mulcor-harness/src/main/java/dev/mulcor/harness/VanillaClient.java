@@ -17,6 +17,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
+import java.security.KeyFactory;
+import java.security.SecureRandom;
+import java.security.spec.X509EncodedKeySpec;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import dev.mulcor.net.Crypto;
+import net.minestom.server.network.packet.client.login.ClientEncryptionResponsePacket;
+import net.minestom.server.network.packet.server.login.EncryptionRequestPacket;
+import net.minestom.server.network.player.GameProfile;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
 import net.minestom.server.instance.block.BlockFace;
@@ -68,8 +80,11 @@ import net.minestom.server.network.packet.server.status.ResponsePacket;
 public final class VanillaClient implements AutoCloseable {
     public final String name;
     private final Socket socket;
-    private final DataInputStream in;
-    private final OutputStream out;
+    private final BufferedInputStream rawIn;
+    private final OutputStream rawOut;
+    // Swapped for AES/CFB8 streams by the reader thread when the server asks for encryption.
+    private volatile DataInputStream in;
+    private volatile OutputStream out;
     private final Thread reader;
     private volatile ConnectionState state = ConnectionState.HANDSHAKE;
     private volatile int threshold;
@@ -81,6 +96,14 @@ public final class VanillaClient implements AutoCloseable {
     public volatile int viewCenterX = Integer.MIN_VALUE, viewCenterZ = Integer.MIN_VALUE;
     public volatile int lastAckedSequence = -1;
     public volatile String disconnectReason;
+    /** True once both directions are encrypted. */
+    public volatile boolean encrypted;
+    /** Whether the server's Encryption Request asked the client to authenticate with the session server. */
+    public volatile boolean authenticationRequested;
+    /** The session hash this client would have sent to Mojang's {@code join} endpoint. */
+    public volatile String serverHash;
+    /** The profile from Login Success (online mode: the session server's profile). */
+    public volatile GameProfile profile;
     public volatile Throwable failure;
     public final AtomicInteger registryPackets = new AtomicInteger(), tagPackets = new AtomicInteger();
     public final AtomicInteger keepAlives = new AtomicInteger(), batches = new AtomicInteger();
@@ -91,8 +114,10 @@ public final class VanillaClient implements AutoCloseable {
         this.socket = new Socket();
         socket.connect(new InetSocketAddress(host, port), 5000);
         socket.setTcpNoDelay(true);
-        this.in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-        this.out = socket.getOutputStream();
+        this.rawIn = new BufferedInputStream(socket.getInputStream());
+        this.rawOut = socket.getOutputStream();
+        this.in = new DataInputStream(rawIn);
+        this.out = rawOut;
         send(new ClientHandshakePacket(Vanilla.PROTOCOL, host, port, ClientHandshakePacket.Intent.LOGIN));
         state = ConnectionState.LOGIN;
         send(new ClientLoginStartPacket(name, UUID.randomUUID()));
@@ -187,7 +212,9 @@ public final class VanillaClient implements AutoCloseable {
     private void handle(ServerPacket packet) {
         switch (packet) {
             case SetCompressionPacket c -> threshold = c.threshold();
+            case EncryptionRequestPacket r -> enableEncryption(r);
             case LoginSuccessPacket s -> {
+                profile = s.gameProfile();
                 send(new ClientLoginAcknowledgedPacket());
                 state = ConnectionState.CONFIGURATION;
             }
@@ -221,6 +248,36 @@ public final class VanillaClient implements AutoCloseable {
             }
             case DisconnectPacket d -> disconnectReason = d.message().toString();
             default -> { }
+        }
+    }
+
+    /**
+     * Vanilla's client side of Encryption Request: pick a random AES secret, RSA-encrypt it and the verify token
+     * with the server's key, send them in the clear, then switch both directions to AES/CFB8. (A real online-mode
+     * client would first call Mojang's {@code join} with {@link #serverHash}; tests use a fake session server.)
+     */
+    private void enableEncryption(EncryptionRequestPacket r) {
+        try {
+            byte[] secret = new byte[16];
+            new SecureRandom().nextBytes(secret);
+            var rsa = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            rsa.init(Cipher.ENCRYPT_MODE, KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(r.publicKey())));
+            byte[] encSecret = rsa.doFinal(secret), encToken = rsa.doFinal(r.verifyToken());
+            var key = new SecretKeySpec(secret, "AES");
+            var enc = Cipher.getInstance("AES/CFB8/NoPadding");
+            enc.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(secret));
+            var dec = Cipher.getInstance("AES/CFB8/NoPadding");
+            dec.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(secret));
+            serverHash = Crypto.serverHash(r.serverId(), secret, r.publicKey());
+            authenticationRequested = r.shouldAuthenticate();
+            synchronized (this) {
+                send(new ClientEncryptionResponsePacket(encSecret, encToken));
+                out = new CipherOutputStream(rawOut, enc);
+            }
+            in = new DataInputStream(new CipherInputStream(rawIn, dec)); // only this (reader) thread reads
+            encrypted = true;
+        } catch (java.security.GeneralSecurityException e) {
+            throw new IllegalStateException(e);
         }
     }
 

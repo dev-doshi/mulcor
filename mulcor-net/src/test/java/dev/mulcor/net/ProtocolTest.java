@@ -23,7 +23,7 @@ class ProtocolTest {
         assertEquals(0, Protocol.vanillaState(Blocks.AIR));
         assertNotEquals(Protocol.vanillaState(Blocks.STONE), Protocol.vanillaState(Blocks.DIRT));
         var wires = new HashSet<Integer>();
-        for (int p = 0; p < 16; p++) wires.add(Protocol.vanillaState(Blocks.WIRE + p));
+        for (int p = 0; p < 16; p++) wires.add(Protocol.vanillaState(Blocks.wire(p)));
         assertEquals(16, wires.size(), "each redstone power level is a distinct vanilla state");
     }
 }

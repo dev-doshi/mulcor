@@ -168,7 +168,7 @@ final class Redstone {
         if (isWire(st)) {
             int p = wireInput(b, x, y, z);
             if (p != wirePower(st)) {
-                b.set(x, y, z, WIRE + p);
+                r.setBlock(x, y, z, withWirePower(st, p));
                 notifyNeighbours(r, x, y, z, origin);
                 notifyNeighbours(r, x, y - 1, z, origin); // the block below is (weakly) powered by us
             }
@@ -181,14 +181,14 @@ final class Redstone {
         } else if (isLamp(st)) {
             boolean powered = receivesPower(b, x, y, z);
             if (powered && st == LAMP) {
-                b.set(x, y, z, LAMP_LIT);
+                r.setBlock(x, y, z, LAMP_LIT);
                 notifyNeighbours(r, x, y, z, origin);
             } else if (!powered && st == LAMP_LIT) {
                 schedule(r, x, y, z, origin + LAMP_OFF_DELAY, 0);
             }
         } else if (st == TNT) {
             if (receivesPower(b, x, y, z)) {
-                b.set(x, y, z, AIR);
+                r.setBlock(x, y, z, AIR);
                 Sim.spawnTnt(r, x + 0.5, y, z + 0.5, TNT_FUSE, dev.mulcor.core.Rng.mix(origin, x, (long) y << 32 | z));
                 r.tntPrimed++;
                 notifyNeighbours(r, x, y, z, origin);
@@ -205,7 +205,7 @@ final class Redstone {
         if (isTorch(st)) {
             boolean lit = torchShouldBeLit(b, x, y, z);
             if (lit != (st == TORCH)) {
-                b.set(x, y, z, lit ? TORCH : TORCH_OFF);
+                r.setBlock(x, y, z, lit ? TORCH : TORCH_OFF);
                 r.redstoneChanges++;
                 notifyNeighbours(r, x, y, z, due);
                 notifyNeighbours(r, x, y + 1, z, due); // the block above is strongly powered by a lit torch
@@ -222,12 +222,12 @@ final class Redstone {
             }
         } else if (st == LAMP_LIT) {
             if (!receivesPower(b, x, y, z)) {
-                b.set(x, y, z, LAMP);
+                r.setBlock(x, y, z, LAMP);
                 notifyNeighbours(r, x, y, z, due);
             }
         } else if (st == SAND) {
             if (y - 1 >= b.minY() && b.getShared(x, y - 1, z) == AIR) {
-                b.set(x, y, z, AIR);
+                r.setBlock(x, y, z, AIR);
                 Physics.spawnFallingBlock(r, x + 0.5, y, z + 0.5, SAND);
                 notifyNeighbours(r, x, y, z, due);
             }
@@ -235,7 +235,7 @@ final class Redstone {
     }
 
     private static void setRepeater(Region r, int x, int y, int z, int st, boolean powered, long origin) {
-        r.world.blocks.set(x, y, z, withRepeaterPowered(st, powered));
+        r.setBlock(x, y, z, withRepeaterPowered(st, powered));
         r.redstoneChanges++;
         int dir = repeaterDir(st);
         int fx = x + DX[dir], fz = z + DZ[dir];
@@ -277,7 +277,7 @@ final class Redstone {
                 if (repeaterPowered(n) && nx + DX[repeaterDir(n)] == x && nz + DZ[repeaterDir(n)] == z) return 15;
             } else if (isWire(n)) {
                 p = Math.max(p, wirePower(n) - 1);
-            } else if (isSolid(n) && stronglyPowered(b, nx, y, nz)) {
+            } else if (isConductor(n) && stronglyPowered(b, nx, y, nz)) {
                 return 15;
             }
         }

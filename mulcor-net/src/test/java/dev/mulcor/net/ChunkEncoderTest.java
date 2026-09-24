@@ -53,7 +53,7 @@ class ChunkEncoderTest {
         // 5: 1000 distinct Mulcor ids (direct palette; unknown ids map to air in vanilla)
         for (int y = 16; y < 32; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) s.set(x, y, z, Blocks.STONE);
         for (int y = 32; y < 48; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) s.set(x, y, z, rnd.nextBoolean() ? Blocks.DIRT : Blocks.AIR);
-        for (int y = 48; y < 64; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) s.set(x, y, z, Blocks.WIRE + rnd.nextInt(16));
+        for (int y = 48; y < 64; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) s.set(x, y, z, Blocks.wire(rnd.nextInt(16)));
         s.set(0, 48, 0, Blocks.STONE); s.set(1, 48, 0, Blocks.DIRT); s.set(2, 48, 0, Blocks.TNT); s.set(3, 48, 0, Blocks.CHEST);
         for (int y = 64; y < 80; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) s.set(x, y, z, 1 + rnd.nextInt(200));
         for (int y = 80; y < 96; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) s.set(x, y, z, 1 + ((y * 256 + z * 16 + x) % 1000));

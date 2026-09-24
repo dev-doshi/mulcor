@@ -131,7 +131,7 @@ public final class ChunkEncoder {
                     int st = Short.toUnsignedInt(slab.get(ValueLayout.JAVA_SHORT, base + 2L * ((ly << 8) | i)));
                     if (st == 0) continue;
                     if (surface[i] == 0) { surface[i] = y0 + ly + 1; remaining--; }
-                    if (motion[i] == 0 && dev.mulcor.core.Blocks.isSolid(st)) { motion[i] = y0 + ly + 1; remaining--; }
+                    if (motion[i] == 0 && dev.mulcor.core.Blocks.isMotionBlocking(st)) { motion[i] = y0 + ly + 1; remaining--; }
                 }
             }
         }

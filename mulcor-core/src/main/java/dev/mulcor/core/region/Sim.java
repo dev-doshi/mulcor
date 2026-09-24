@@ -143,7 +143,7 @@ final class Sim {
         BlockStorage b = r.world.blocks;
         int st = b.get(x, y, z);
         if (!Blocks.isMineable(st)) return; // already gone: whoever arrived first got it
-        b.set(x, y, z, Blocks.AIR);
+        r.setBlock(x, y, z, Blocks.AIR);
         deliver(r, eid, st, 1);
         Redstone.blockChanged(r, x, y, z);
     }
@@ -167,7 +167,7 @@ final class Sim {
 
     private static void placeOwned(Region r, int eid, int x, int y, int z, int item) {
         BlockStorage b = r.world.blocks;
-        if (b.inBounds(x, y, z) && b.get(x, y, z) == Blocks.AIR && b.set(x, y, z, item) != BlockStorage.FAILED) {
+        if (b.inBounds(x, y, z) && b.get(x, y, z) == Blocks.AIR && r.setBlock(x, y, z, item) != BlockStorage.FAILED) {
             Redstone.blockChanged(r, x, y, z);
         } else {
             deliver(r, eid, item, 1); // occupied or out of world: refund
@@ -321,7 +321,7 @@ final class Sim {
 
     /** SET_BLOCK input: set a block this region owns and run the resulting updates. */
     static void setBlockAndUpdate(Region r, int x, int y, int z, int state) {
-        if (r.world.ownerOfBlock(x, z) != r.id || r.world.blocks.set(x, y, z, state) == BlockStorage.FAILED) return;
+        if (r.world.ownerOfBlock(x, z) != r.id || r.setBlock(x, y, z, state) == BlockStorage.FAILED) return;
         Redstone.blockChanged(r, x, y, z);
     }
 }

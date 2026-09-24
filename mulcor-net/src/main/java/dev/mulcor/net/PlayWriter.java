@@ -1,8 +1,12 @@
 package dev.mulcor.net;
 
 import dev.mulcor.memory.BlockStorage;
+import dev.mulcor.memory.LightStorage;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
@@ -33,6 +37,9 @@ public final class PlayWriter implements AutoCloseable {
     private final ByteBuf body = Unpooled.directBuffer(640 * 1024);
     private final ByteBuf zipped = Unpooled.directBuffer(640 * 1024);
     private final int[] surface = new int[256], motion = new int[256];
+    /** One light section copied out of {@link LightStorage}, and a reusable NIO view of it. */
+    private final MemorySegment lightScratch = Arena.ofAuto().allocate(LightStorage.SECTION_BYTES);
+    private final ByteBuffer lightView = lightScratch.asByteBuffer();
 
     /** @param threshold compression threshold in bytes; 0 or less writes uncompressed frames. */
     public PlayWriter(int threshold) {
@@ -41,10 +48,11 @@ public final class PlayWriter implements AutoCloseable {
     }
 
     /**
-     * Append one framed Chunk Data and Update Light packet for column (chunkX, chunkZ). The storage floor must be
-     * a multiple of 16 inside the overworld's height.
+     * Append one framed Chunk Data and Update Light packet for column (chunkX, chunkZ) with the world's real light.
+     * The storage floor must be a multiple of 16 inside the overworld's height.
      */
-    public void chunk(BlockStorage blocks, int chunkX, int chunkZ, ByteBuf out) {
+    public void chunk(BlockStorage blocks, LightStorage blockLight, LightStorage skyLight, int chunkX, int chunkZ,
+            ByteBuf out) {
         data.clear();
         blocks.beginExternalRead();
         try {
@@ -63,7 +71,7 @@ public final class PlayWriter implements AutoCloseable {
         VarInts.write(body, data.readableBytes());
         copy(data, body);
         VarInts.write(body, 0); // block entities
-        writeLight();
+        writeLight(blockLight, skyLight, chunkX, chunkZ);
         frame(out);
     }
 
@@ -84,22 +92,59 @@ public final class PlayWriter implements AutoCloseable {
         if (filled > 0) body.writeLong(word);
     }
 
-    /** Full sky light everywhere (sections below and above the column included), no block light. */
-    private void writeLight() {
-        int lightSections = sections + 2;
-        long all = lightSections == 64 ? -1L : (1L << lightSections) - 1;
-        VarInts.write(body, 1);
-        body.writeLong(all); // sky mask
-        VarInts.write(body, 0); // block mask
-        VarInts.write(body, 0); // empty sky mask
-        VarInts.write(body, 1);
-        body.writeLong(all); // empty block mask
-        VarInts.write(body, lightSections);
-        for (int s = 0; s < lightSections; s++) {
-            VarInts.write(body, FULL_LIGHT.length);
-            body.writeBytes(FULL_LIGHT);
+    /**
+     * Vanilla {@code ClientboundLightUpdatePacketData}: for each light section (one below the column to one above),
+     * a section with data goes in the mask with its 2048 bytes; an all-zero one goes in the empty mask
+     * ({@code prepareSectionData}: {@code dataLayer.isEmpty()}). Sections Mulcor does not store are air: full sky
+     * above the storage, darkness below it. {@code null} storages mean full sky light and no block light.
+     */
+    private void writeLight(LightStorage blockLight, LightStorage skyLight, int chunkX, int chunkZ) {
+        int n = sections + 2, wireMin = (minY >> 4) - 1;
+        long skyMask = 0, emptySky = 0, blockMask = 0, emptyBlock = 0;
+        for (int i = 0; i < n; i++) {
+            long bit = 1L << i;
+            if (level(skyLight, 15, chunkX, chunkZ, wireMin + i) == 0) emptySky |= bit; else skyMask |= bit;
+            if (level(blockLight, 0, chunkX, chunkZ, wireMin + i) == 0) emptyBlock |= bit; else blockMask |= bit;
         }
-        VarInts.write(body, 0); // block light arrays
+        writeMask(skyMask);
+        writeMask(blockMask);
+        writeMask(emptySky);
+        writeMask(emptyBlock);
+        writeArrays(skyLight, 15, skyMask, chunkX, chunkZ, wireMin);
+        writeArrays(blockLight, 0, blockMask, chunkX, chunkZ, wireMin);
+    }
+
+    /** Uniform level of a light section (-1 if it holds an array); outside the storage, {@code above} or 0. */
+    private static int level(LightStorage ls, int above, int chunkX, int chunkZ, int sectionY) {
+        if (ls == null) return above;
+        if (sectionY >= ls.minSection() + ls.sections()) return above;
+        if (sectionY < ls.minSection()) return 0;
+        return ls.uniformLevel(chunkX, chunkZ, sectionY);
+    }
+
+    private void writeMask(long mask) {
+        if (mask == 0) {
+            VarInts.write(body, 0);
+        } else {
+            VarInts.write(body, 1);
+            body.writeLong(mask);
+        }
+    }
+
+    private void writeArrays(LightStorage ls, int above, long mask, int chunkX, int chunkZ, int wireMin) {
+        VarInts.write(body, Long.bitCount(mask));
+        for (long m = mask; m != 0; m &= m - 1) {
+            int sectionY = wireMin + Long.numberOfTrailingZeros(m);
+            VarInts.write(body, LightStorage.SECTION_BYTES);
+            if (ls == null || sectionY >= ls.minSection() + ls.sections() || sectionY < ls.minSection()) {
+                body.writeBytes(FULL_LIGHT); // above the storage: open sky (15); below it the level is 0, never sent
+            } else {
+                ls.copySection(chunkX, chunkZ, sectionY, lightScratch, 0);
+                body.ensureWritable(LightStorage.SECTION_BYTES);
+                body.internalNioBuffer(body.writerIndex(), LightStorage.SECTION_BYTES).put(lightView.clear());
+                body.writerIndex(body.writerIndex() + LightStorage.SECTION_BYTES);
+            }
+        }
     }
 
     public void keepAlive(long id, ByteBuf out) {

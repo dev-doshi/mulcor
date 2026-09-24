@@ -2,6 +2,7 @@ package dev.mulcor.net;
 
 import dev.mulcor.core.region.Input;
 import dev.mulcor.memory.BlockStorage;
+import dev.mulcor.memory.LightStorage;
 import dev.mulcor.memory.NativeMemory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -35,6 +36,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
     private final int threshold;
     private final String name;
     private final BlockStorage blocks;
+    private final LightStorage blockLight, skyLight;
     private final int chunksX, chunksZ, radius;
     /** One bit per world chunk: the client currently holds it. */
     private final long[] sent;
@@ -54,6 +56,8 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         this.threshold = threshold;
         this.name = name;
         this.blocks = server.engine().world.blocks;
+        this.blockLight = server.engine().world.blockLight;
+        this.skyLight = server.engine().world.skyLight;
         this.chunksX = blocks.chunksX();
         this.chunksZ = blocks.chunksZ();
         this.radius = server.viewDistance();
@@ -182,7 +186,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         int bit = z * chunksX + x;
         if ((sent[bit >>> 6] & (1L << bit)) != 0) return n;
         if (n == 0) w.batchStart(out);
-        w.chunk(blocks, x, z, out);
+        w.chunk(blocks, blockLight, skyLight, x, z, out);
         sent[bit >>> 6] |= 1L << bit;
         chunksSent++;
         return n + 1;

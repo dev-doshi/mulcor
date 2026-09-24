@@ -34,8 +34,8 @@ import java.lang.foreign.ValueLayout;
  *   <li><b>Mob AI</b> (yaw choice, when to jump) is Mulcor's own. It feeds the same inputs vanilla's
  *       {@code MoveControl}/{@code JumpControl} produce ({@code yRot}, {@code zza = speed}, {@code jumping}); the
  *       physics from there on is vanilla's.</li>
- *   <li>Not modelled: fluids, effects, slow blocks (soul sand, honey), ice friction, step-up onto partial blocks
- *       (every Mulcor block is a full cube, so vanilla's 0.6 step never applies), entity cramming damage.</li>
+ *   <li>Collision uses vanilla's real block shapes with step-up ({@link Collision}).</li>
+ *   <li>Not modelled: fluids, effects, slow blocks (soul sand, honey), ice friction, entity cramming damage.</li>
  * </ul>
  */
 final class Physics {
@@ -59,6 +59,17 @@ final class Physics {
     static float width(int type) { return type == BOT || type == PLAYER ? 0.6F : 0.98F; }
     static float halfWidth(int type) { return width(type) / 2.0F; } // EntityDimensions.makeBoundingBox: float f = width / 2.0F
     static float height(int type) { return type == BOT ? 1.95F : type == PLAYER ? 1.8F : 0.98F; }
+    /**
+     * {@code Entity.maxUpStep()}: {@code Attributes.STEP_HEIGHT} for living entities (0.6, from the vanilla
+     * registry's zombie defaults), 0 for primed TNT and falling blocks.
+     */
+    static float maxUpStep(int type) {
+        return type == BOT || type == PLAYER ? ZOMBIE_STEP : 0.0F;
+    }
+
+    private static final float ZOMBIE_STEP = (float) dev.mulcor.registry.EntityTypes.attribute(
+            dev.mulcor.registry.EntityTypeId.ZOMBIE, dev.mulcor.registry.AttributeId.STEP_HEIGHT);
+
     static float eyeHeight(int type) { return type == BOT ? 1.74F : type == PLAYER ? 1.62F : 0.15F; }
     private static boolean pushable(int type) { return type == BOT; }
     private static boolean pusher(int type) { return type == BOT || type == PLAYER; }
@@ -196,7 +207,7 @@ final class Physics {
         r.despawn(s);
         boolean replaceable = b.inBounds(x, y, z) && b.get(x, y, z) == Blocks.AIR;
         boolean belowFree = b.getShared(x, y - 1, z) == Blocks.AIR; // FallingBlock.isFree for Mulcor's blocks
-        if (replaceable && !belowFree && b.set(x, y, z, block) != BlockStorage.FAILED) {
+        if (replaceable && !belowFree && r.setBlock(x, y, z, block) != BlockStorage.FAILED) {
             Redstone.blockChanged(r, x, y, z);
         } else {
             r.droppedItems++; // breaks and drops as an item
@@ -214,10 +225,9 @@ final class Physics {
     // ---- Entity.move --------------------------------------------------------------------------------------------
 
     /**
-     * {@code Entity.move(MoverType.SELF, movement)} for full-cube worlds:
+     * {@code Entity.move(MoverType.SELF, movement)}:
      * <ol>
-     *   <li>{@code collide(movement)}: per axis in {@code Direction.axisStepOrder(movement)} (Y, then X before Z
-     *       unless {@code |x| < |z|}), {@code Shapes.collide} against every block box.</li>
+     *   <li>{@code collide(movement)} against the vanilla block shapes, including step-up ({@link Collision}).</li>
      *   <li>The position moves only if {@code collided.lengthSqr() > 1e-7 || movement.lengthSqr() -
      *       collided.lengthSqr() < 1e-7}.</li>
      *   <li>{@code horizontalCollision = !Mth.equal(m.x, c.x) || !Mth.equal(m.z, c.z)} (tolerance 1e-5F);
@@ -233,16 +243,10 @@ final class Physics {
         double hw = halfWidth(type), h = height(type);
         double x = t.x(s), y = t.y(s), z = t.z(s);
         double minX = x - hw, minY = y, minZ = z - hw, maxX = x + hw, maxY = y + h, maxZ = z + hw;
-        BlockStorage b = r.world.blocks;
-        double cx = 0, cy = 0, cz = 0;
-        if (my != 0.0) cy = collideY(r, b, minX, minY, minZ, maxX, maxY, maxZ, my);
-        if (Math.abs(mx) < Math.abs(mz)) {
-            if (mz != 0.0) cz = collideZ(r, b, minX, minY + cy, minZ, maxX, maxY + cy, maxZ, mz);
-            if (mx != 0.0) cx = collideX(r, b, minX, minY + cy, minZ + cz, maxX, maxY + cy, maxZ + cz, mx);
-        } else {
-            if (mx != 0.0) cx = collideX(r, b, minX, minY + cy, minZ, maxX, maxY + cy, maxZ, mx);
-            if (mz != 0.0) cz = collideZ(r, b, minX + cx, minY + cy, minZ, maxX + cx, maxY + cy, maxZ, mz);
-        }
+        double[] out = r.collideOut;
+        Collision.collide(r, minX, minY, minZ, maxX, maxY, maxZ, mx, my, mz, maxUpStep(type),
+                (t.flags(s) & FLAG_ON_GROUND) != 0, out);
+        double cx = out[0], cy = out[1], cz = out[2];
         double cLen = cx * cx + cy * cy + cz * cz, mLen = mx * mx + my * my + mz * mz;
         if (cLen > 1.0E-7 || mLen - cLen < 1.0E-7) t.setPos(s, x + cx, y + cy, z + cz);
         boolean hx = Math.abs(cx - mx) >= 1.0E-5F, hz = Math.abs(cz - mz) >= 1.0E-5F;
@@ -261,96 +265,6 @@ final class Physics {
         if (hz) vz = 0.0;
         if (my != cy) vy = 0.0;
         t.setVel(s, vx, vy, vz);
-    }
-
-    /** Solid for movement: full-cube blocks, and everything outside the world's sides or below its floor. */
-    private static boolean solid(Region r, BlockStorage b, int x, int y, int z) {
-        if (x < 0 || z < 0 || x >= r.world.sizeX() || z >= r.world.sizeZ() || y < b.minY()) return true;
-        return Blocks.isSolid(b.getShared(x, y, z));
-    }
-
-    /**
-     * {@code Shapes.collide(axis, box, shapes, offset)} for unit cubes. A block takes part if the box overlaps it
-     * on the other two axes by more than 1e-7 ({@code VoxelShape.collideX}'s {@code findIndex(min + 1e-7)} /
-     * {@code findIndex(max - 1e-7)}). Moving +: {@code d = blockMin - boxMax; if (d >= -1e-7) offset = min(offset, d)};
-     * moving -: {@code d = blockMax - boxMin; if (d <= 1e-7) offset = max(offset, d)}. {@code |offset| < 1e-7}
-     * snaps to 0.
-     *
-     * <p>Same result, fewer reads: the answer is the nearest block face ahead, so only the layers between the box
-     * face and {@code face + offset} can matter. They are scanned nearest first, and the first solid layer decides
-     * (vanilla takes min/max over all shapes, which is that same nearest face).
-     */
-    private static double collideY(Region r, BlockStorage b, double minX, double minY, double minZ,
-            double maxX, double maxY, double maxZ, double off) {
-        if (Math.abs(off) < EPS) return 0.0;
-        int x0 = (int) Math.floor(minX + EPS), x1 = (int) Math.floor(maxX - EPS);
-        int z0 = (int) Math.floor(minZ + EPS), z1 = (int) Math.floor(maxZ - EPS);
-        if (off < 0) {
-            for (int by = (int) Math.floor(minY + EPS) - 1, end = (int) Math.floor(minY + off) - 1; by >= end; by--) {
-                if (by + 1 <= minY + off) break;
-                for (int bx = x0; bx <= x1; bx++) for (int bz = z0; bz <= z1; bz++) {
-                    if (solid(r, b, bx, by, bz)) return snap(Math.max(off, by + 1 - minY));
-                }
-            }
-        } else {
-            for (int by = (int) Math.ceil(maxY - EPS), end = (int) Math.floor(maxY + off) + 1; by <= end; by++) {
-                if (by >= maxY + off) break;
-                for (int bx = x0; bx <= x1; bx++) for (int bz = z0; bz <= z1; bz++) {
-                    if (solid(r, b, bx, by, bz)) return snap(Math.min(off, by - maxY));
-                }
-            }
-        }
-        return off;
-    }
-
-    private static double collideX(Region r, BlockStorage b, double minX, double minY, double minZ,
-            double maxX, double maxY, double maxZ, double off) {
-        if (Math.abs(off) < EPS) return 0.0;
-        int y0 = (int) Math.floor(minY + EPS), y1 = (int) Math.floor(maxY - EPS);
-        int z0 = (int) Math.floor(minZ + EPS), z1 = (int) Math.floor(maxZ - EPS);
-        if (off < 0) {
-            for (int bx = (int) Math.floor(minX + EPS) - 1, end = (int) Math.floor(minX + off) - 1; bx >= end; bx--) {
-                if (bx + 1 <= minX + off) break;
-                for (int by = y0; by <= y1; by++) for (int bz = z0; bz <= z1; bz++) {
-                    if (solid(r, b, bx, by, bz)) return snap(Math.max(off, bx + 1 - minX));
-                }
-            }
-        } else {
-            for (int bx = (int) Math.ceil(maxX - EPS), end = (int) Math.floor(maxX + off) + 1; bx <= end; bx++) {
-                if (bx >= maxX + off) break;
-                for (int by = y0; by <= y1; by++) for (int bz = z0; bz <= z1; bz++) {
-                    if (solid(r, b, bx, by, bz)) return snap(Math.min(off, bx - maxX));
-                }
-            }
-        }
-        return off;
-    }
-
-    private static double collideZ(Region r, BlockStorage b, double minX, double minY, double minZ,
-            double maxX, double maxY, double maxZ, double off) {
-        if (Math.abs(off) < EPS) return 0.0;
-        int x0 = (int) Math.floor(minX + EPS), x1 = (int) Math.floor(maxX - EPS);
-        int y0 = (int) Math.floor(minY + EPS), y1 = (int) Math.floor(maxY - EPS);
-        if (off < 0) {
-            for (int bz = (int) Math.floor(minZ + EPS) - 1, end = (int) Math.floor(minZ + off) - 1; bz >= end; bz--) {
-                if (bz + 1 <= minZ + off) break;
-                for (int bx = x0; bx <= x1; bx++) for (int by = y0; by <= y1; by++) {
-                    if (solid(r, b, bx, by, bz)) return snap(Math.max(off, bz + 1 - minZ));
-                }
-            }
-        } else {
-            for (int bz = (int) Math.ceil(maxZ - EPS), end = (int) Math.floor(maxZ + off) + 1; bz <= end; bz++) {
-                if (bz >= maxZ + off) break;
-                for (int bx = x0; bx <= x1; bx++) for (int by = y0; by <= y1; by++) {
-                    if (solid(r, b, bx, by, bz)) return snap(Math.min(off, bz - maxZ));
-                }
-            }
-        }
-        return off;
-    }
-
-    private static double snap(double off) {
-        return Math.abs(off) < EPS ? 0.0 : off;
     }
 
     // ---- falling blocks -----------------------------------------------------------------------------------------

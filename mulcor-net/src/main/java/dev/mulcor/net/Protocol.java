@@ -1,7 +1,5 @@
 package dev.mulcor.net;
 
-import dev.mulcor.core.Blocks;
-import net.minestom.server.instance.block.Block;
 import net.minestom.server.instance.palette.Palette;
 import net.minestom.server.network.packet.PacketVanilla;
 import net.minestom.server.network.packet.client.play.ClientClickWindowPacket;
@@ -44,33 +42,6 @@ public final class Protocol {
     public static final int PALETTE_MAX_BITS = Palette.BLOCK_PALETTE_MAX_BITS;
     public static final int PALETTE_DIRECT_BITS = Palette.BLOCK_PALETTE_DIRECT_BITS;
 
-    /** Mulcor block id → vanilla block-state id (air for unknown ids). */
-    private static final int[] STATE_IDS = new int[Blocks.WIRE + 16];
-
-    static {
-        java.util.Arrays.fill(STATE_IDS, Block.AIR.stateId());
-        STATE_IDS[Blocks.AIR] = Block.AIR.stateId();
-        STATE_IDS[Blocks.BEDROCK] = Block.BEDROCK.stateId();
-        STATE_IDS[Blocks.STONE] = Block.STONE.stateId();
-        STATE_IDS[Blocks.DIRT] = Block.DIRT.stateId();
-        STATE_IDS[Blocks.CHEST] = Block.CHEST.stateId();
-        STATE_IDS[Blocks.TNT] = Block.TNT.stateId();
-        STATE_IDS[Blocks.REDSTONE_BLOCK] = Block.REDSTONE_BLOCK.stateId();
-        for (int p = 0; p < 16; p++) {
-            STATE_IDS[Blocks.WIRE + p] = Block.REDSTONE_WIRE.withProperty("power", String.valueOf(p)).stateId();
-        }
-    }
-
-    /** Mulcor block id → vanilla state has a fluid; feeds the per-section fluid count of chunk packets. */
-    private static final boolean[] FLUIDS = new boolean[STATE_IDS.length];
-
-    static {
-        for (int i = 0; i < STATE_IDS.length; i++) {
-            Block block = Block.fromStateId(STATE_IDS[i]);
-            FLUIDS[i] = block != null && block.fluid();
-        }
-    }
-
     private Protocol() {}
 
     private static int id(Class<?> packet) {
@@ -81,12 +52,17 @@ public final class Protocol {
         return PacketVanilla.SERVER_PACKET_PARSER.play().packetInfo(packet).id();
     }
 
-    public static int vanillaState(int mulcorState) {
-        return mulcorState >= 0 && mulcorState < STATE_IDS.length ? STATE_IDS[mulcorState] : STATE_IDS[0];
+    /**
+     * Block ids in Mulcor's storage are vanilla global state ids (see {@code dev.mulcor.registry.BlockData}), so the
+     * mapping to the wire is the identity; unknown ids become air.
+     */
+    public static int vanillaState(int state) {
+        return state >= 0 && state < dev.mulcor.registry.Registry.stateCount() ? state : 0;
     }
 
-    /** Whether the Mulcor block's vanilla state carries a non-empty fluid (water, lava, waterlogged). */
-    public static boolean isFluid(int mulcorState) {
-        return mulcorState >= 0 && mulcorState < FLUIDS.length && FLUIDS[mulcorState];
+    /** Whether the state carries a non-empty fluid (water, lava, waterlogged): the chunk packet's fluid count. */
+    public static boolean isFluid(int state) {
+        return state >= 0 && state < dev.mulcor.registry.Registry.stateCount()
+                && dev.mulcor.registry.BlockData.is(state, dev.mulcor.registry.BlockData.FLUID);
     }
 }
