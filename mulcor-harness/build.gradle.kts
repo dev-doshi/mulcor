@@ -5,6 +5,8 @@ description = "Headless virtual clients, bot scenarios, metrics, stress/alloc ga
 dependencies {
     api(project(":mulcor-core"))
     api(project(":mulcor-net"))
+    testImplementation(project(":mulcor-registry"))
+    testImplementation(libs.archunit)
     implementation(libs.hdrhistogram)
     implementation(libs.minestom) // VanillaClient speaks the client side of the protocol with Minestom's serializers
     "jmhImplementation"(libs.jctools)
