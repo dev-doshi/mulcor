@@ -1,6 +1,17 @@
 # Mulcor Architecture Roadmap
 
-> Phase 0 design document: from the regionized, lock-free, zero-allocation prototype to a vanilla-compatible Minecraft Java server. Nothing in here is implemented yet; each milestone starts only after review.
+> Phase 0 design document: from the regionized, lock-free, zero-allocation prototype to a vanilla-compatible Minecraft Java server. Progress against it is tracked in **Status** below.
+
+## Status (branch `main-7kmdaq`)
+
+| Milestone | State | What is in |
+|---|---|---|
+| M1 | Mostly done | Join, configuration, play, chunk streaming; encryption and online mode; vanilla state ids from the generated registry; real light in chunk packets; `HotPathAuditTest`. **Egress:** per-region `BroadcastJournal` of block changes and block events, forwarded by `PlaySession` (block updates, piston animation events); per-region seqlocked network entity snapshots, entity tracking (spawn with LpVec3 velocity, position sync, remove) and tab lists. Missing: chat and the cold lane (`ColdOpRing`), entity metadata beyond defaults, section-batched block updates. |
+| M2 | Mostly done | NBT codec, Anvil region files, chunk codec, `level.dat`, async sharded chunk I/O, off-heap light engine with incremental updates. |
+| M3 | Mostly done | Block updates in vanilla order (`NeighborUpdater`, shape updates); redstone: wire, torches with burnout, repeaters, comparators (analog inputs, compare/subtract), observers, levers, buttons, lamps, TNT, falling blocks; **pistons** (block events, structure resolver, moving-piston block entities); **fluids** (water, lava, waterlogging, their own tick list); **affinity coalescing** (§3.3). Missing: pressure plates and other entity-driven components, random ticks (crops, leaves, ice), block-entity analog outputs (containers). |
+| M4-M6 | Not started | Players place only dirt today; inventories and item use are M4. |
+
+Verification: redstone traces in `RedstoneParityTest` were recorded on a vanilla server; the newer component, piston and fluid tests are derived from the vanilla code and should be replaced by recorded traces. Packet encoders are checked byte-for-byte against Minestom's serializers, and `MultiplayerTest` runs two real-socket clients.
 
 **Decisions:**
 - Cross-region parity: **affinity coalescing** plus **deadline-stamped messages** (§3).
