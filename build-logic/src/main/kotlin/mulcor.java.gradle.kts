@@ -10,7 +10,7 @@ val libs = the<VersionCatalogsExtension>().named("libs")
 fun lib(alias: String) = libs.findLibrary(alias).get()
 
 // Preview class files are tied to the exact compiler release, so compile and run on one JDK.
-val javaRelease = providers.gradleProperty("mulcor.java.release").map(String::toInt).orElse(26)
+val javaRelease = providers.gradleProperty("mulcor.java.release").map(String::toInt).orElse(27)
 
 java {
     toolchain {

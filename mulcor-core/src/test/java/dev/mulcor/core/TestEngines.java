@@ -28,7 +28,7 @@ final class TestEngines {
         engine.setAiEnabled(false);
         engine.run(2);
         for (Region r : engine.world.regions) {
-            for (int s = 0; s < r.table.count(); s++) r.table.setVel(s, 0f, 0f, 0f);
+            for (int s = 0; s < r.table.count(); s++) { r.table.setVel(s, 0f, 0f, 0f); r.table.setInput(s, 0f, 0f); }
         }
         // Lit TNT keeps burning with AI off and its explosion messages neighbours, so wait until no TNT is left and
         // nothing has been in flight for several consecutive ticks.
@@ -80,17 +80,30 @@ final class TestEngines {
     static long mineableTotal(Engine e) {
         var w = e.world;
         var s = e.stats();
-        return w.countBlocks(Blocks.STONE) + w.countBlocks(Blocks.DIRT)
-                + w.countItems(Blocks.STONE) + w.countItems(Blocks.DIRT)
+        return w.countBlocks(Blocks.STONE) + w.countBlocks(Blocks.DIRT) + w.countBlocks(Blocks.SAND) + fallingBlocks(e)
+                + w.countItems(Blocks.STONE) + w.countItems(Blocks.DIRT) + w.countItems(Blocks.SAND)
                 + s.droppedItems + s.destroyedBlocks;
     }
 
     private static boolean hasTnt(Engine engine) {
         for (var r : engine.world.regions) {
             for (int s = 0; s < r.table.count(); s++) {
-                if (r.table.type(s) == dev.mulcor.core.region.Entities.TNT) return true;
+                int type = r.table.type(s);
+                if (type == dev.mulcor.core.region.Entities.TNT || type == dev.mulcor.core.region.Entities.FALLING_BLOCK) return true;
             }
         }
         return false;
+    }
+
+    /** Sand in flight: a falling block entity holds one block. */
+    static long fallingBlocks(Engine engine) {
+        long n = 0;
+        for (var r : engine.world.regions) {
+            if (!r.isActive()) continue;
+            for (int s = 0; s < r.table.count(); s++) {
+                if (r.table.type(s) == dev.mulcor.core.region.Entities.FALLING_BLOCK) n++;
+            }
+        }
+        return n;
     }
 }

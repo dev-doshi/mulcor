@@ -93,6 +93,17 @@ public final class World implements AutoCloseable {
         }
     }
 
+    /**
+     * An explosion destroyed the chest block at (x, y, z): empty its inventory (the items spill, and are counted as
+     * dropped by the caller). Owner region only. Returns the number of items removed.
+     */
+    public long destroyChestAt(int x, int y, int z) {
+        for (int c = 0; c < chestX.length; c++) {
+            if (chestX[c] == x && chestY[c] == y && chestZ[c] == z) return chests.clear(c);
+        }
+        return 0;
+    }
+
     public int sizeX() { return sizeX; }
     public int sizeZ() { return sizeZ; }
     public int chestCount() { return chestX.length; }
@@ -128,7 +139,7 @@ public final class World implements AutoCloseable {
             case Msg.TRANSFER -> ownerOfBlock(
                     (int) Math.floor(seg.get(ValueLayout.JAVA_DOUBLE, off + Msg.BODY + EntityRecord.X)),
                     (int) Math.floor(seg.get(ValueLayout.JAVA_DOUBLE, off + Msg.BODY + EntityRecord.Z)));
-            case Msg.BLOCK_BREAK, Msg.BLOCK_PLACE, Msg.EXPLOSION, Msg.REDSTONE ->
+            case Msg.BLOCK_BREAK, Msg.BLOCK_PLACE, Msg.NEIGHBOR_UPDATE, Msg.SCHEDULED_TICK ->
                     ownerOfBlock(seg.get(ValueLayout.JAVA_INT, off + Msg.A), seg.get(ValueLayout.JAVA_INT, off + Msg.C));
             case Msg.INV_TAKE, Msg.INV_PUT -> ownerOfChest(seg.get(ValueLayout.JAVA_INT, off + Msg.A));
             case Msg.INV_DELIVER -> ownerOfEntity(seg.get(ValueLayout.JAVA_INT, off + Msg.A));

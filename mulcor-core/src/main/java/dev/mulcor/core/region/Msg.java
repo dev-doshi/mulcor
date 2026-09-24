@@ -7,8 +7,13 @@ public final class Msg {
     public static final long DST = 4;
     public static final long A = 8, B = 12, C = 16, D = 20, E = 24, F = 28;
     public static final long WORD = 32;
-    public static final long BODY = 40;
-    public static final int BYTES = 104;
+    /**
+     * Epoch at which the effect is due. Stamped with the sender's epoch by default; a delayed effect carries
+     * {@code sendEpoch + delay}, so it fires at the same epoch as it would have inside one region.
+     */
+    public static final long DEADLINE = 40;
+    public static final long BODY = 48;
+    public static final int BYTES = 48 + dev.mulcor.memory.EntityRecord.BYTES;
 
     /** WORD = expected IN_TRANSIT ownership, BODY = EntityRecord. */
     public static final int TRANSFER = 1;
@@ -16,10 +21,13 @@ public final class Msg {
     public static final int BLOCK_BREAK = 2;
     /** A,B,C = x,y,z; D = block/item; E = requesting entity (refunded if occupied). */
     public static final int BLOCK_PLACE = 3;
-    /** A,B,C = centre; D = radius. The receiver carves its own cells only. */
+    /** BODY = centre x, y, z (doubles) and power (float). The receiver pushes its own entities (knockback). */
     public static final int EXPLOSION = 4;
-    /** A,B,C = x,y,z of a redstone component to re-evaluate. */
-    public static final int REDSTONE = 5;
+    /**
+     * A,B,C = x,y,z of a block to re-evaluate (0-delay neighbour update crossing a region border). DEADLINE = the
+     * sender's epoch, used as the origin for any tick the update schedules.
+     */
+    public static final int NEIGHBOR_UPDATE = 5;
     /** A = chest, B = slot, C = count, D = requesting entity. */
     public static final int INV_TAKE = 6;
     /** A = chest, B = item, C = count, D = requesting entity. Carries items. */
@@ -30,6 +38,19 @@ public final class Msg {
     public static final int INPUT = 9;
     /** WORD = epoch sent, DST = target. Test-only: measures delivery latency in epochs. */
     public static final int PROBE = 10;
+    /**
+     * A,B,C = x,y,z; D = priority; DEADLINE = due epoch. A scheduled block tick whose position changed owner
+     * (region split or merge) is handed to the new owner with its due epoch intact.
+     */
+    public static final int SCHEDULED_TICK = 11;
+    /**
+     * A = count (≤ {@link #BATCH}), WORD = explosion seed, BODY = packed block positions an explosion selected in
+     * the receiver's cells. The exploding region computes the whole selection from the world as it was before the
+     * blast (as vanilla does) and each owner destroys its share.
+     */
+    public static final int EXPLOSION_BLOCKS = 12;
+    /** Positions per {@link #EXPLOSION_BLOCKS} message. */
+    public static final int BATCH = dev.mulcor.memory.EntityRecord.BYTES / 8;
 
     private Msg() {}
 }

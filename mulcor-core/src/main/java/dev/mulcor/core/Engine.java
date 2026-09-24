@@ -451,6 +451,17 @@ public final class Engine implements AutoCloseable {
             s.updatesDropped += r.updatesDropped;
             s.joins += r.joins;
             s.leaves += r.leaves;
+            s.blockUpdates += r.blockUpdates;
+            s.crossUpdates += r.crossUpdates;
+            s.scheduledTicks += r.scheduledTicks;
+            s.redstoneChanges += r.redstoneChanges;
+            s.tntPrimed += r.tntPrimed;
+            s.updatesDeferred += r.updatesDeferred;
+            s.ticksDropped += r.ticksDropped;
+            s.pushes += r.pushes;
+            s.borderPushes += r.borderPushes;
+            s.destroyedOther += r.destroyedOther;
+            if (r.isActive()) s.pendingTicks += r.scheduledTickCount();
             s.pending += r.pendingMessages();
         }
         s.activeRegions = world.partition.activeCount();
@@ -464,6 +475,8 @@ public final class Engine implements AutoCloseable {
         public long entities, transfersOut, transfersIn, transferRejects, transferDeferred, transferCancelled;
         public long droppedItems, destroyedBlocks, explosions, forwarded, inputs, messages, overflowed;
         public long undeliverable, stateViolations, updatesDropped, pending, joins, leaves;
+        public long blockUpdates, crossUpdates, scheduledTicks, redstoneChanges, tntPrimed, updatesDeferred, ticksDropped;
+        public long pushes, borderPushes, pendingTicks, destroyedOther;
         public long activeRegions, splits, merges, rehomed;
 
         @Override
@@ -476,6 +489,10 @@ public final class Engine implements AutoCloseable {
                     + ", destroyed=" + destroyedBlocks + ", dropped=" + droppedItems + ", overflowed="
                     + overflowed + ", undeliverable=" + undeliverable + ", violations=" + stateViolations
                     + ", updatesDropped=" + updatesDropped + ", joins=" + joins + ", leaves=" + leaves
+                    + ", blockUpdates=" + blockUpdates + ", crossUpdates=" + crossUpdates + ", scheduledTicks="
+                    + scheduledTicks + ", redstoneChanges=" + redstoneChanges + ", tntPrimed=" + tntPrimed
+                    + ", updatesDeferred=" + updatesDeferred + ", ticksDropped=" + ticksDropped + ", pushes=" + pushes
+                    + ", borderPushes=" + borderPushes + ", destroyedOther=" + destroyedOther + ", pendingTicks=" + pendingTicks
                     + ", pending=" + pending + "}";
         }
     }

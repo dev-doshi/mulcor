@@ -24,6 +24,7 @@ import net.minestom.server.network.packet.server.play.ChunkBatchFinishedPacket;
 import net.minestom.server.network.packet.server.play.ChunkBatchStartPacket;
 import net.minestom.server.network.packet.server.play.ChunkDataPacket;
 import net.minestom.server.network.packet.server.play.UpdateViewPositionPacket;
+import net.minestom.server.network.packet.server.play.data.ChunkData;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -114,17 +115,20 @@ class PlayWriterTest {
 
     private static void assertSections(BlockStorage s, int cx, int cz, byte[] data) {
         NetworkBuffer nb = NetworkBuffer.wrap(data, 0, data.length);
+        var sectionType = ChunkData.Section.networkType(64);
         for (int vs = 0; vs < Vanilla.SECTIONS; vs++) {
-            short count = nb.read(NetworkBuffer.SHORT);
-            Palette p = nb.read(Palette.BLOCK_SERIALIZER);
-            int nonAir = 0;
+            ChunkData.Section section = nb.read(sectionType);
+            Palette p = section.blockStates();
+            int nonAir = 0, fluids = 0;
             for (int y = 0; y < 16; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) {
                 int ours = s.get(cx * 16 + x, Vanilla.MIN_Y + vs * 16 + y, cz * 16 + z);
                 if (ours != 0) nonAir++;
+                if (Protocol.isFluid(ours)) fluids++;
                 assertEquals(Protocol.vanillaState(ours), p.get(x, y, z));
             }
-            assertEquals(nonAir, count, "non-air count, vanilla section " + vs);
-            assertEquals(Vanilla.PLAINS_BIOME, nb.read(Palette.biomeSerializer(64)).get(0, 0, 0));
+            assertEquals(nonAir, section.blockCount(), "non-air count, vanilla section " + vs);
+            assertEquals(fluids, section.liquidCount(), "fluid count, vanilla section " + vs);
+            assertEquals(Vanilla.PLAINS_BIOME, section.biomes().get(0, 0, 0));
         }
         assertEquals(data.length, nb.readIndex(), "exactly " + Vanilla.SECTIONS + " sections");
     }

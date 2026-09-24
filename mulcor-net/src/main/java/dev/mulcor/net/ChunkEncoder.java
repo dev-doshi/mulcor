@@ -9,7 +9,8 @@ import java.lang.foreign.ValueLayout;
  * Serializes chunk sections from off-heap {@link BlockStorage} into the vanilla chunk-section wire format, as
  * defined by Minestom's {@code Palette} serializer, writing straight into a (pooled, direct) Netty buffer.
  *
- * <p>Per section: {@code short nonAirCount}, then the block paletted container, then the biome container.
+ * <p>Per section: {@code short nonAirCount}, {@code short fluidCount} (since 1.21.5), then the block paletted
+ * container, then the biome container.
  * A paletted container is:
  * <ul>
  *   <li>1 distinct state: bits 0 and a single VarInt value.</li>
@@ -34,6 +35,7 @@ public final class ChunkEncoder {
         int ref = blocks.sectionRef(chunkX, chunkZ, sectionY);
         if (ref == 0) {
             out.writeShort(0);
+            out.writeShort(0);
             writeSingle(out, Protocol.vanillaState(0));
         } else {
             MemorySegment slab = blocks.slab();
@@ -42,10 +44,11 @@ public final class ChunkEncoder {
                 java.util.Arrays.fill(stamp, 0);
                 generation = 1;
             }
-            int distinct = 0, nonAir = 0;
+            int distinct = 0, nonAir = 0, fluids = 0;
             for (int i = 0; i < DIM; i++) {
                 int st = Short.toUnsignedInt(slab.get(ValueLayout.JAVA_SHORT, base + 2L * i));
                 if (st != 0) nonAir++;
+                if (Protocol.isFluid(st)) fluids++;
                 if (stamp[st] != generation) {
                     stamp[st] = generation;
                     indexOf[st] = distinct;
@@ -53,6 +56,7 @@ public final class ChunkEncoder {
                 }
             }
             out.writeShort(nonAir);
+            out.writeShort(fluids);
             if (distinct == 1) {
                 writeSingle(out, Protocol.vanillaState(palette[0]));
             } else {
@@ -99,6 +103,7 @@ public final class ChunkEncoder {
             if (y0 >= blocks.minY() && y0 < blocks.maxYExclusive()) {
                 encodeSection(blocks, chunkX, chunkZ, (y0 - blocks.minY()) >> 4, biomeId, out);
             } else {
+                out.writeShort(0);
                 out.writeShort(0);
                 writeSingle(out, Protocol.vanillaState(0));
                 writeSingle(out, biomeId);

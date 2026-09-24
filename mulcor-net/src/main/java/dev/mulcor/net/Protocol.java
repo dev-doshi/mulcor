@@ -61,6 +61,16 @@ public final class Protocol {
         }
     }
 
+    /** Mulcor block id → vanilla state has a fluid; feeds the per-section fluid count of chunk packets. */
+    private static final boolean[] FLUIDS = new boolean[STATE_IDS.length];
+
+    static {
+        for (int i = 0; i < STATE_IDS.length; i++) {
+            Block block = Block.fromStateId(STATE_IDS[i]);
+            FLUIDS[i] = block != null && block.fluid();
+        }
+    }
+
     private Protocol() {}
 
     private static int id(Class<?> packet) {
@@ -73,5 +83,10 @@ public final class Protocol {
 
     public static int vanillaState(int mulcorState) {
         return mulcorState >= 0 && mulcorState < STATE_IDS.length ? STATE_IDS[mulcorState] : STATE_IDS[0];
+    }
+
+    /** Whether the Mulcor block's vanilla state carries a non-empty fluid (water, lava, waterlogged). */
+    public static boolean isFluid(int mulcorState) {
+        return mulcorState >= 0 && mulcorState < FLUIDS.length && FLUIDS[mulcorState];
     }
 }
