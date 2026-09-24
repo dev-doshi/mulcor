@@ -14,6 +14,11 @@ import net.minestom.server.network.packet.server.play.AcknowledgeBlockChangePack
 import net.minestom.server.network.packet.server.play.BlockActionPacket;
 import net.minestom.server.network.packet.server.play.BlockChangePacket;
 import net.minestom.server.network.packet.server.play.ChunkBatchFinishedPacket;
+import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket;
+import net.minestom.server.network.packet.server.play.EntityPositionSyncPacket;
+import net.minestom.server.network.packet.server.play.PlayerInfoRemovePacket;
+import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket;
+import net.minestom.server.network.packet.server.play.SpawnEntityPacket;
 import net.minestom.server.network.packet.server.play.ChunkBatchStartPacket;
 import net.minestom.server.network.packet.server.play.ChunkDataPacket;
 import net.minestom.server.network.packet.server.play.UpdateViewPositionPacket;
@@ -41,6 +46,11 @@ public final class Protocol {
     public static final int OUT_ACK_BLOCK = serverId(AcknowledgeBlockChangePacket.class);
     public static final int OUT_BLOCK_UPDATE = serverId(BlockChangePacket.class);
     public static final int OUT_BLOCK_EVENT = serverId(BlockActionPacket.class);
+    public static final int OUT_ADD_ENTITY = serverId(SpawnEntityPacket.class);
+    public static final int OUT_ENTITY_SYNC = serverId(EntityPositionSyncPacket.class);
+    public static final int OUT_REMOVE_ENTITIES = serverId(DestroyEntitiesPacket.class);
+    public static final int OUT_PLAYER_INFO_UPDATE = serverId(PlayerInfoUpdatePacket.class);
+    public static final int OUT_PLAYER_INFO_REMOVE = serverId(PlayerInfoRemovePacket.class);
 
     public static final int PALETTE_MIN_BITS = Palette.BLOCK_PALETTE_MIN_BITS;
     public static final int PALETTE_MAX_BITS = Palette.BLOCK_PALETTE_MAX_BITS;

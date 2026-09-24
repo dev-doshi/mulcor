@@ -202,6 +202,102 @@ public final class PlayWriter implements AutoCloseable {
         frame(out);
     }
 
+    /**
+     * {@code ClientboundAddEntityPacket}: id, UUID, type, position, velocity ({@link #lpVec3}), pitch, yaw and head
+     * yaw as angle bytes, and the type's data (a falling block's state).
+     */
+    public void addEntity(int id, long uuidMost, long uuidLeast, int type, double x, double y, double z,
+                          double vx, double vy, double vz, float yaw, float pitch, int data, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_ADD_ENTITY);
+        VarInts.write(body, id);
+        body.writeLong(uuidMost);
+        body.writeLong(uuidLeast);
+        VarInts.write(body, type);
+        body.writeDouble(x);
+        body.writeDouble(y);
+        body.writeDouble(z);
+        lpVec3(vx, vy, vz, body);
+        body.writeByte(angle(pitch));
+        body.writeByte(angle(yaw));
+        body.writeByte(angle(yaw)); // head yaw
+        VarInts.write(body, data);
+        frame(out);
+    }
+
+    /** {@code ClientboundEntityPositionSyncPacket}: id, position, velocity, yaw, pitch, on ground. */
+    public void entitySync(int id, double x, double y, double z, double vx, double vy, double vz, float yaw, float pitch,
+                           boolean onGround, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_ENTITY_SYNC);
+        VarInts.write(body, id);
+        body.writeDouble(x);
+        body.writeDouble(y);
+        body.writeDouble(z);
+        body.writeDouble(vx);
+        body.writeDouble(vy);
+        body.writeDouble(vz);
+        body.writeFloat(yaw);
+        body.writeFloat(pitch);
+        body.writeBoolean(onGround);
+        frame(out);
+    }
+
+    /** {@code ClientboundRemoveEntitiesPacket}: the first {@code n} ids of {@code ids}. */
+    public void removeEntities(int[] ids, int n, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_REMOVE_ENTITIES);
+        VarInts.write(body, n);
+        for (int i = 0; i < n; i++) VarInts.write(body, ids[i]);
+        frame(out);
+    }
+
+    /** Frame an already serialized packet (id + payload), e.g. a cold-path packet written by Minestom. */
+    public void raw(byte[] packet, ByteBuf out) {
+        body.clear();
+        body.writeBytes(packet);
+        frame(out);
+    }
+
+    /** {@code Mth.packDegrees}: degrees to a protocol angle byte. */
+    static int angle(float degrees) {
+        return (int) Math.floor(degrees * 256.0F / 360.0F) & 0xFF;
+    }
+
+    /**
+     * Vanilla's {@code LpVec3} (1.21.9+): a single 0 byte for a (near-)zero vector; otherwise the three components
+     * divided by a whole-number scale, each quantized to 15 bits, packed with the scale's low bits into 6 bytes
+     * (a byte, a byte, a big-endian int), followed by a VarInt of {@code scale >> 2} when the scale needs more than 2
+     * bits.
+     */
+    static void lpVec3(double x, double y, double z, ByteBuf buf) {
+        x = sanitize(x);
+        y = sanitize(y);
+        z = sanitize(z);
+        double max = Math.max(Math.abs(x), Math.max(Math.abs(y), Math.abs(z)));
+        if (max < 3.051944088384301E-5) {
+            buf.writeByte(0);
+            return;
+        }
+        long scale = (long) max;
+        if (max > scale) scale++;
+        boolean continuation = (scale & 3) != scale;
+        long scaleBits = continuation ? (scale & 3) | 4 : scale;
+        long bits = scaleBits | lpPack(x / scale) << 3 | lpPack(y / scale) << 18 | lpPack(z / scale) << 33;
+        buf.writeByte((int) bits);
+        buf.writeByte((int) (bits >> 8));
+        buf.writeInt((int) (bits >> 16));
+        if (continuation) VarInts.write(buf, (int) (scale >> 2));
+    }
+
+    private static double sanitize(double v) {
+        return Double.isNaN(v) ? 0.0 : Math.clamp(v, -1.7179869183E10, 1.7179869183E10);
+    }
+
+    private static long lpPack(double v) {
+        return Math.round((v * 0.5 + 0.5) * 32766.0);
+    }
+
     /** Frame {@link #body} (packet id + payload) into {@code out}, compressing it if it reaches the threshold. */
     private void frame(ByteBuf out) {
         int len = body.readableBytes();

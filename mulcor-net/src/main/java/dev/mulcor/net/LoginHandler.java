@@ -366,7 +366,7 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
         var ingress = new IngressHandler(decoder, new TokenBucket(server.perConnectionBurst(), server.perConnectionRate()),
                 server.globalBucket());
         var session = new PlaySession(server, entity, decoder, compression ? server.compressionThreshold() : 0,
-                spawnX, spawnZ, name);
+                spawnX, spawnZ, profile);
         ByteBuf leftover = cumulation.isReadable() ? cumulation.retainedSlice() : null;
         ctx.pipeline().addAfter(ctx.name(), "mulcor-play", session);
         ctx.pipeline().addAfter("mulcor-play", "mulcor-ingress", ingress);

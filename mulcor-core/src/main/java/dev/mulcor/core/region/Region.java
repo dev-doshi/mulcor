@@ -28,6 +28,8 @@ public final class Region {
     public static final int SCHEDULED = StateWord.SCHEDULED, RUNNING = StateWord.RUNNING;
 
     private static final ValueLayout.OfInt I = ValueLayout.JAVA_INT;
+    private static final ValueLayout.OfDouble D = ValueLayout.JAVA_DOUBLE;
+    private static final ValueLayout.OfFloat F = ValueLayout.JAVA_FLOAT;
     private static final ValueLayout.OfLong L = ValueLayout.JAVA_LONG;
 
     public final int id;
@@ -67,6 +69,9 @@ public final class Region {
     boolean fluidTicksDone;
     /** Scratch for {@link Fluids}. */
     final FluidScratch fluid = new FluidScratch();
+    /** Network entity snapshots ({@link NetEntities}): every entity after each tick, double-buffered, seqlocked. */
+    private final MemorySegment netSnapshot;
+    private final int netCapacity;
     /** This slot's egress journal ({@link Journal}): block changes and block events, published at the end of a tick. */
     final BroadcastJournal journal;
     /** Affinity coalescing is on (see {@link Affinity}): block writes near cell edges mark them for a recount. */
@@ -152,6 +157,8 @@ public final class Region {
         this.movingPistonCapacity = 8192;
         this.affinityEnabled = cfg.affinity() && cfg.rebalanceInterval() > 0;
         this.journal = world.journals[id];
+        this.netCapacity = Math.min(cfg.regionEntityCapacity(), 2048);
+        this.netSnapshot = mem.allocate(2 * (NetEntities.HEADER + (long) netCapacity * NetEntities.BYTES));
         this.movingPistons = new MovingPistons(movingPistonCapacity);
         this.gridNext = new int[cfg.regionEntityCapacity()];
         this.gridCellX = new int[cfg.regionEntityCapacity()];
@@ -186,6 +193,39 @@ public final class Region {
         emit(ScheduledTicks.pack(x, y, z), (long) Journal.BLOCK << 56);
         return old;
     }
+
+    /**
+     * Copy every entity into the network snapshot buffer of this epoch's parity (see {@link NetEntities}); entities
+     * beyond the snapshot capacity are left out (and not tracked by clients) until there is room.
+     */
+    private void publishNetSnapshot() {
+        long base = NetEntities.bufferOffset((int) (epoch & 1), netCapacity);
+        MemorySegment s = netSnapshot;
+        NetEntities.beginWrite(s, base, epoch);
+        int n = Math.min(table.count(), netCapacity);
+        for (int i = 0; i < n; i++) {
+            long o = NetEntities.record(base, i);
+            int type = table.type(i);
+            s.set(I, o + NetEntities.ID, (int) table.id(i));
+            s.set(I, o + NetEntities.TYPE, type);
+            s.set(D, o + NetEntities.X, table.x(i));
+            s.set(D, o + NetEntities.Y, table.y(i));
+            s.set(D, o + NetEntities.Z, table.z(i));
+            s.set(D, o + NetEntities.VX, table.vx(i));
+            s.set(D, o + NetEntities.VY, table.vy(i));
+            s.set(D, o + NetEntities.VZ, table.vz(i));
+            boolean player = type == Entities.PLAYER;
+            s.set(F, o + NetEntities.YAW, player ? Float.intBitsToFloat(table.aux1(i)) : table.inputYaw(i));
+            s.set(F, o + NetEntities.PITCH, player ? Float.intBitsToFloat(table.aux2(i)) : 0f);
+            s.set(I, o + NetEntities.FLAGS, table.flags(i));
+            s.set(I, o + NetEntities.DATA, type == Entities.FALLING_BLOCK ? table.aux1(i) : 0);
+        }
+        NetEntities.endWrite(s, base, epoch, n);
+    }
+
+    /** The network entity snapshot segment and its per-buffer capacity (readers: see {@link NetEntities}). */
+    public MemorySegment netSnapshot() { return netSnapshot; }
+    public int netCapacity() { return netCapacity; }
 
     /** Append a record to this slot's egress journal (visible to sessions at the next {@link #publishJournal}). */
     void emit(long pos, long meta) {
@@ -293,6 +333,7 @@ public final class Region {
         Sim.simulate(this);              // entities: AI, physics, TNT, falling blocks
         Pistons.tickBlockEntities(this); // Level.tickBlockEntities: moving pistons
         Physics.publishSnapshot(this);
+        publishNetSnapshot();
         journal.publish();
         long dt = System.nanoTime() - t0;
         lastTickNanos = dt;

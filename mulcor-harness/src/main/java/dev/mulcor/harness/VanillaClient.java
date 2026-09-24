@@ -64,6 +64,13 @@ import net.minestom.server.network.packet.server.login.SetCompressionPacket;
 import net.minestom.server.network.packet.server.play.AcknowledgeBlockChangePacket;
 import net.minestom.server.network.packet.server.play.ChunkBatchFinishedPacket;
 import net.minestom.server.network.packet.server.play.ChunkDataPacket;
+import net.minestom.server.network.packet.server.play.BlockActionPacket;
+import net.minestom.server.network.packet.server.play.BlockChangePacket;
+import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket;
+import net.minestom.server.network.packet.server.play.EntityPositionSyncPacket;
+import net.minestom.server.network.packet.server.play.PlayerInfoRemovePacket;
+import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket;
+import net.minestom.server.network.packet.server.play.SpawnEntityPacket;
 import net.minestom.server.network.packet.server.play.JoinGamePacket;
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket;
 import net.minestom.server.network.packet.server.play.UpdateViewPositionPacket;
@@ -108,6 +115,13 @@ public final class VanillaClient implements AutoCloseable {
     public final AtomicInteger registryPackets = new AtomicInteger(), tagPackets = new AtomicInteger();
     public final AtomicInteger keepAlives = new AtomicInteger(), batches = new AtomicInteger();
     public final Map<Long, ChunkDataPacket> chunks = new ConcurrentHashMap<>();
+    /** Entities the server spawned on this client and has not removed, by entity id. */
+    public final Map<Integer, SpawnEntityPacket> entities = new ConcurrentHashMap<>();
+    /** The tab list: UUID → name. */
+    public final Map<java.util.UUID, String> tabList = new ConcurrentHashMap<>();
+    /** The latest block update per position ({@link #blockKey}). */
+    public final Map<Long, Integer> blockUpdates = new ConcurrentHashMap<>();
+    public final AtomicInteger entitySyncs = new AtomicInteger(), blockEvents = new AtomicInteger();
 
     private VanillaClient(String host, int port, String name) throws IOException {
         this.name = name;
@@ -129,6 +143,10 @@ public final class VanillaClient implements AutoCloseable {
         VanillaClient c = new VanillaClient(host, port, name);
         c.await(() -> c.entityId >= 0 && c.position != null, timeout, "join");
         return c;
+    }
+
+    public static long blockKey(int x, int y, int z) {
+        return ((long) (x & 0x3FFFFFF) << 38) | ((long) (z & 0x3FFFFFF) << 12) | (y & 0xFFF);
     }
 
     public static long chunkKey(int x, int z) {
@@ -242,6 +260,18 @@ public final class VanillaClient implements AutoCloseable {
                 send(new ClientChunkBatchReceivedPacket(64f));
             }
             case AcknowledgeBlockChangePacket a -> lastAckedSequence = a.sequence();
+            case SpawnEntityPacket s -> entities.put(s.entityId(), s);
+            case DestroyEntitiesPacket d -> d.entityIds().forEach(entities::remove);
+            case EntityPositionSyncPacket s -> entitySyncs.incrementAndGet();
+            case PlayerInfoUpdatePacket p -> {
+                if (p.actions().contains(PlayerInfoUpdatePacket.Action.ADD_PLAYER)) {
+                    for (var e : p.entries()) tabList.put(e.uuid(), e.username());
+                }
+            }
+            case PlayerInfoRemovePacket r -> r.uuids().forEach(tabList::remove);
+            case BlockChangePacket b -> blockUpdates.put(blockKey(b.blockPosition().blockX(), b.blockPosition().blockY(),
+                    b.blockPosition().blockZ()), b.blockStateId());
+            case BlockActionPacket b -> blockEvents.incrementAndGet();
             case KeepAlivePacket k -> {
                 keepAlives.incrementAndGet();
                 send(new ClientKeepAlivePacket(k.id()));
