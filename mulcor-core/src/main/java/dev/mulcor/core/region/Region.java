@@ -53,6 +53,9 @@ public final class Region {
     private final int snapshotCapacity;
     private final MemorySegment retry;
     final Pathfinder path = new Pathfinder();
+    /** Scratch for {@link Collision}: the collided movement, and step-up candidate heights. */
+    final double[] collideOut = new double[3];
+    final float[] stepCandidates = new float[64];
     private final OffHeapRing.SlotHandler onMessage = this::handleMessage;
     private final OffHeapRing.SlotHandler onInput = this::handleInput;
 

@@ -47,7 +47,7 @@ class PlayWriterTest {
             if (x == 20 && z == 5) continue; // one empty column
             s.set(x, 0, z, Blocks.BEDROCK);
             for (int y = 1; y < 4; y++) s.set(x, y, z, rnd.nextBoolean() ? Blocks.STONE : Blocks.DIRT);
-            if (rnd.nextInt(5) == 0) s.set(x, 4, z, Blocks.WIRE + rnd.nextInt(16)); // not motion-blocking
+            if (rnd.nextInt(5) == 0) s.set(x, 4, z, Blocks.wire(rnd.nextInt(16))); // not motion-blocking
         }
         for (int i = 0; i < 4000; i++) s.set(16 + rnd.nextInt(16), 16 + rnd.nextInt(48), rnd.nextInt(16), 1 + rnd.nextInt(300));
         s.set(3, 63, 3, Blocks.TNT);
@@ -142,7 +142,7 @@ class PlayWriterTest {
             for (int y = s.maxYExclusive() - 1; y >= s.minY(); y--) {
                 int st = s.get(cx * 16 + x, y, cz * 16 + z);
                 if (ws == 0 && st != 0) ws = y + 1 - Vanilla.MIN_Y;
-                if (mb == 0 && Blocks.isSolid(st)) mb = y + 1 - Vanilla.MIN_Y;
+                if (mb == 0 && Blocks.isMotionBlocking(st)) mb = y + 1 - Vanilla.MIN_Y; // Heightmap.Types.MOTION_BLOCKING
             }
             assertEquals(ws, packed(surface, bits, z * 16 + x), "WORLD_SURFACE " + x + "," + z);
             assertEquals(mb, packed(motion, bits, z * 16 + x), "MOTION_BLOCKING " + x + "," + z);

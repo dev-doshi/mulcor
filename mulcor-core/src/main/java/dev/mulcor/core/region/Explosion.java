@@ -56,23 +56,19 @@ final class Explosion {
 
     private Explosion() {}
 
-    /** {@code Block.getExplosionResistance()} of each Mulcor block (vanilla values; air is skipped by the caller). */
+    /**
+     * Vanilla {@code ExplosionDamageCalculator.getBlockExplosionResistance}: empty for air with no fluid, otherwise
+     * {@code max(block.getExplosionResistance(), fluid.getExplosionResistance())}. Water and lava both resist 100, so
+     * a state holding fluid (water, lava, waterlogged) resists at least 100. Values from the vanilla registry.
+     */
     static float resistance(int state) {
-        return state >= 0 && state < RESISTANCE.length ? RESISTANCE[state] : 0f;
+        float block = dev.mulcor.registry.BlockData.explosionResistance(dev.mulcor.registry.BlockData.block(state));
+        return dev.mulcor.registry.BlockData.is(state, dev.mulcor.registry.BlockData.FLUID) ? Math.max(block, 100f) : block;
     }
 
-    private static final float[] RESISTANCE = new float[Blocks.REPEATER_END];
-
-    static {
-        for (int st = 0; st < RESISTANCE.length; st++) {
-            float v = 0f; // TNT, wire, torches, repeaters
-            if (st == Blocks.BEDROCK) v = 3_600_000f;
-            else if (st == Blocks.STONE || st == Blocks.REDSTONE_BLOCK) v = 6.0f;
-            else if (st == Blocks.DIRT || st == Blocks.SAND) v = 0.5f;
-            else if (st == Blocks.CHEST) v = 2.5f;
-            else if (Blocks.isLamp(st)) v = 0.3f;
-            RESISTANCE[st] = v;
-        }
+    /** True if an explosion ray is not slowed by this state: vanilla's {@code state.isAir() && fluid.isEmpty()}. */
+    static boolean passesFreely(int state) {
+        return dev.mulcor.registry.BlockData.isAir(state) && !dev.mulcor.registry.BlockData.is(state, dev.mulcor.registry.BlockData.FLUID);
     }
 
     /**
@@ -197,7 +193,7 @@ final class Explosion {
                 int bx = (int) Math.floor(x), by = (int) Math.floor(y), bz = (int) Math.floor(z);
                 int st = stateAt(r, bx, by, bz);
                 if (st < 0) break; // outside the world
-                if (st != Blocks.AIR) {
+                if (!passesFreely(st)) {
                     f -= (resistance(st) + 0.3F) * 0.3F;
                     if (f > 0.0F && hits < r.blastUsed.length) {
                         long key = dev.mulcor.memory.ScheduledTicks.pack(bx, by, bz) + 1;

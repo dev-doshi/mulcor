@@ -168,7 +168,7 @@ final class Redstone {
         if (isWire(st)) {
             int p = wireInput(b, x, y, z);
             if (p != wirePower(st)) {
-                b.set(x, y, z, WIRE + p);
+                b.set(x, y, z, withWirePower(st, p));
                 notifyNeighbours(r, x, y, z, origin);
                 notifyNeighbours(r, x, y - 1, z, origin); // the block below is (weakly) powered by us
             }
@@ -277,7 +277,7 @@ final class Redstone {
                 if (repeaterPowered(n) && nx + DX[repeaterDir(n)] == x && nz + DZ[repeaterDir(n)] == z) return 15;
             } else if (isWire(n)) {
                 p = Math.max(p, wirePower(n) - 1);
-            } else if (isSolid(n) && stronglyPowered(b, nx, y, nz)) {
+            } else if (isConductor(n) && stronglyPowered(b, nx, y, nz)) {
                 return 15;
             }
         }
