@@ -46,9 +46,12 @@ final class RedstoneStates {
     static final int[] CCW = {-1, -1, WEST, EAST, SOUTH, NORTH};
 
     static final int OTHER = 0, WIRE = 1, REPEATER = 2, TORCH = 3, WALL_TORCH = 4, LAMP = 5, TNT = 6,
-            REDSTONE_BLOCK = 7, FALLING = 8, COMPARATOR = 9, OBSERVER = 10, LEVER = 11, BUTTON = 12;
+            REDSTONE_BLOCK = 7, FALLING = 8, COMPARATOR = 9, OBSERVER = 10, LEVER = 11, BUTTON = 12,
+            PISTON = 13, PISTON_HEAD = 14, MOVING_PISTON = 15;
     static final int NONE = 0, SIDE = 1, UP_SIDE = 2;
     static final int POWERED_BIT = 1 << 6, LIT_BIT = 1 << 6, LOCKED_BIT = 1 << 5, SUBTRACT_BIT = 1 << 5, WOODEN_BIT = 1 << 3;
+    /** Pistons, heads and moving pistons: bits 0-2 {@code facing}; bit 6 {@code extended} (base); bit 7 sticky. */
+    static final int EXTENDED_BIT = 1 << 6, STICKY_BIT = 1 << 7;
     /** {@code ButtonBlock.ticksToStayPressed}: stone and polished blackstone buttons, wooden buttons. */
     static final int STONE_PRESS_TICKS = 20, WOODEN_PRESS_TICKS = 30;
 
@@ -64,6 +67,11 @@ final class RedstoneStates {
     /** {@code state.cycle(...)} of the property a player's use cycles: repeater {@code delay}, comparator {@code mode}. */
     private static final int[] USE_CYCLE;
     private static final byte[] ANALOG;
+    /** Piston base for {@code sticky << 4 | facing << 1 | extended}; head (short=false) and moving piston for
+     * {@code sticky << 3 | facing}. */
+    /** The state with {@code waterlogged=false}, or the state itself. */
+    private static final int[] UNWATERLOGGED;
+    private static final int[] PISTON_STATE = new int[32], HEAD_STATE = new int[16], MOVING_STATE = new int[16];
     static final int TORCH_ON, TORCH_OFF, LAMP_ON, LAMP_OFF, AIR = 0;
     /** Blocks the wire logic singles out: {@code HOPPER} (wire survives on it), trapdoors (wire climbs them). */
     private static final boolean[] TRAPDOOR_BLOCK;
@@ -162,6 +170,41 @@ final class RedstoneStates {
         }
 
         analogOutputs(blocks);
+
+        UNWATERLOGGED = new int[states];
+        for (int b = 0; b < blocks; b++) {
+            int pw = BlockData.property(b, "waterlogged");
+            for (int s = BlockData.firstState(b), n = s + BlockData.stateCount(b); s < n; s++) {
+                UNWATERLOGGED[s] = pw != BlockData.NO_PROPERTY ? BlockData.withBool(s, pw, false) : s;
+            }
+        }
+
+        // Pistons: facing, extended. Heads: facing, type (normal/sticky), short. Moving pistons: facing, type.
+        for (int sticky = 0; sticky < 2; sticky++) {
+            int base = sticky == 1 ? BlockId.STICKY_PISTON : BlockId.PISTON;
+            int pf = BlockData.property(base, "facing"), pe = BlockData.property(base, "extended");
+            for (int s = BlockData.firstState(base), n = s + BlockData.stateCount(base); s < n; s++) {
+                int f = direction(BlockData.valueName(pf, BlockData.get(s, pf)));
+                int ext = BlockData.boolValue(s, pe) ? 1 : 0;
+                KIND[s] = PISTON;
+                INFO[s] = f | ext * EXTENDED_BIT | sticky * STICKY_BIT;
+                PISTON_STATE[sticky << 4 | f << 1 | ext] = s;
+            }
+        }
+        for (int[] blk : new int[][] {{BlockId.PISTON_HEAD, PISTON_HEAD}, {BlockId.MOVING_PISTON, MOVING_PISTON}}) {
+            int b = blk[0];
+            int pf = BlockData.property(b, "facing"), pt = BlockData.property(b, "type");
+            int pShort = BlockData.property(b, "short");
+            for (int s = BlockData.firstState(b), n = s + BlockData.stateCount(b); s < n; s++) {
+                int f = direction(BlockData.valueName(pf, BlockData.get(s, pf)));
+                int sticky = BlockData.valueName(pt, BlockData.get(s, pt)).equals("sticky") ? 1 : 0;
+                KIND[s] = (byte) blk[1];
+                INFO[s] = f | sticky * STICKY_BIT;
+                boolean isShort = pShort != BlockData.NO_PROPERTY && BlockData.boolValue(s, pShort);
+                if (isShort) continue;
+                (blk[1] == PISTON_HEAD ? HEAD_STATE : MOVING_STATE)[sticky << 3 | f] = s;
+            }
+        }
 
         int torch = BlockId.REDSTONE_TORCH, pLit = BlockData.property(torch, "lit");
         int on = BlockData.withBool(BlockData.defaultState(torch), pLit, true);
@@ -303,6 +346,16 @@ final class RedstoneStates {
     static int pressTicks(int state) { return (INFO[state] & WOODEN_BIT) != 0 ? WOODEN_PRESS_TICKS : STONE_PRESS_TICKS; }
     /** {@code getAnalogOutputSignal}, or -1 without {@code hasAnalogOutputSignal}. */
     static int analogOutput(int state) { return ANALOG[state]; }
+
+    static int unwaterlogged(int state) { return UNWATERLOGGED[state]; }
+    static boolean extended(int state) { return (INFO[state] & EXTENDED_BIT) != 0; }
+    static boolean sticky(int state) { return (INFO[state] & STICKY_BIT) != 0; }
+    static int pistonState(boolean sticky, int facing, boolean extended) {
+        return PISTON_STATE[(sticky ? 16 : 0) | facing << 1 | (extended ? 1 : 0)];
+    }
+    /** {@code PISTON_HEAD[facing, type, short=false]}. */
+    static int headState(boolean sticky, int facing) { return HEAD_STATE[(sticky ? 8 : 0) | facing]; }
+    static int movingState(boolean sticky, int facing) { return MOVING_STATE[(sticky ? 8 : 0) | facing]; }
 
     static boolean lit(int state) { return (INFO[state] & LIT_BIT) != 0; }
     static int wallTorchState(int facing, boolean lit) { return WALL_TORCH_STATE[facing << 1 | (lit ? 1 : 0)]; }

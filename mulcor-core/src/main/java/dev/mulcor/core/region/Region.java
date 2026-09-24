@@ -4,6 +4,7 @@ import dev.mulcor.core.EngineConfig;
 import dev.mulcor.core.World;
 import dev.mulcor.core.light.LightEngine;
 import dev.mulcor.core.light.LightService;
+import dev.mulcor.memory.BlockEventQueue;
 import dev.mulcor.memory.BlockStorage;
 import dev.mulcor.memory.EntityDirectory;
 import dev.mulcor.memory.EntityRecord;
@@ -52,6 +53,15 @@ public final class Region {
     final TorchToggles torchToggles = new TorchToggles();
     /** {@code ComparatorBlockEntity.output} of the comparators this region owns. */
     final ComparatorOutputs comparators = new ComparatorOutputs();
+    /** {@code ServerLevel.blockEvents} for the positions this region owns (pistons). */
+    final BlockEventQueue blockEvents;
+    /** {@code PistonMovingBlockEntity}s of the moving pistons this region owns. */
+    final MovingPistons movingPistons;
+    final int movingPistonCapacity;
+    /** Scratch for {@link Pistons}. */
+    final PistonScratch piston = new PistonScratch();
+    /** {@code ServerLevel.isHandlingTick}: from the block ticks through the block events. */
+    boolean handlingTick;
     /** Scratch for {@link Redstone#hashSetOrder}. */
     final int[] hashOrder = new int[7], hashBucket = new int[7];
 
@@ -97,6 +107,7 @@ public final class Region {
     public long stateViolations, updatesDropped, spawnFailures, joins, leaves;
     public long blockUpdates, crossUpdates, scheduledTicks, redstoneChanges, tntPrimed, updatesDeferred, ticksDropped;
     public long pushes, borderPushes, destroyedOther;
+    public long blockEventsRun, blockEventsDropped, pistonMoves, pistonsBlocked;
     /** Scratch set of positions one explosion destroys (packed position + 1; 0 = empty). */
     final long[] blastSet = new long[1 << 13];
     final int[] blastOwners = new int[16];
@@ -118,6 +129,9 @@ public final class Region {
         this.ingress = new OffHeapRing(mem, cfg.ingressCapacity(), Input.BYTES);
         this.overflow = new OffHeapRing(mem, cfg.inboxCapacity(), Msg.BYTES);
         this.blockTicks = new ScheduledTicks(mem, 16384);
+        this.blockEvents = new BlockEventQueue(mem, 8192);
+        this.movingPistonCapacity = 8192;
+        this.movingPistons = new MovingPistons(movingPistonCapacity);
         this.gridNext = new int[cfg.regionEntityCapacity()];
         this.gridCellX = new int[cfg.regionEntityCapacity()];
         this.gridCellZ = new int[cfg.regionEntityCapacity()];
@@ -203,9 +217,13 @@ public final class Region {
         retryOverflow();
         messages += inbox(epoch - 1).drain(onMessage, Integer.MAX_VALUE);
         ingress.drain(onInput, cfg.ingressBudget());
+        handlingTick = true;
         Redstone.runScheduled(this);     // ServerLevel.tick: block ticks at gameTime = epoch
+        Pistons.runBlockEvents(this);    // ServerLevel.runBlockEvents (pistons), to fixpoint
+        handlingTick = false;
         Physics.pushAll(this);           // entity pushing (momentum transfer), from start-of-tick positions
         Sim.simulate(this);              // entities: AI, physics, TNT, falling blocks
+        Pistons.tickBlockEntities(this); // Level.tickBlockEntities: moving pistons
         Physics.publishSnapshot(this);
         long dt = System.nanoTime() - t0;
         lastTickNanos = dt;
@@ -563,12 +581,22 @@ public final class Region {
         moveTicks(to);
         torchToggles.drainInto(to.torchToggles);
         comparators.drainInto(to.comparators);
+        blockEvents.moveTo(to.blockEvents);
+        movingPistons.moveTo(to.movingPistons, world, -1);
     }
 
     /** Commit phase (region split): hand {@code to} the torch toggles and comparator outputs it now owns. */
     public void splitInto(Region to) {
         torchToggles.moveOwned(world, to.id, to.torchToggles);
         comparators.moveOwned(world, to.id, to.comparators);
+        for (int n = blockEvents.size(); n > 0 && blockEvents.poll(); n--) {
+            long p = blockEvents.pos();
+            boolean moves = world.ownerOfBlock(ScheduledTicks.x(p), ScheduledTicks.z(p)) == to.id;
+            if (!(moves && to.blockEvents.add(p, blockEvents.block(), blockEvents.a(), blockEvents.b()))) {
+                blockEvents.add(p, blockEvents.block(), blockEvents.a(), blockEvents.b());
+            }
+        }
+        movingPistons.moveTo(to.movingPistons, world, to.id);
     }
 
     /** Commit phase: hand scheduled ticks to {@code to} (merge), keeping their due epoch and priority. */
@@ -593,6 +621,13 @@ public final class Region {
             Region to = world.regions[world.ownerOfBlock(ScheduledTicks.x(pos), ScheduledTicks.z(pos))];
             if (to == this || (!to.blockTicks.schedule(due, priority, pos, block) && !to.blockTicks.isScheduled(pos, block))) ticksDropped++;
         }
+        // Block events and moving pistons go to whoever owns their position now.
+        for (int n = blockEvents.size(); n > 0 && blockEvents.poll(); n--) {
+            long p = blockEvents.pos();
+            Region to = world.regions[world.ownerOfBlock(ScheduledTicks.x(p), ScheduledTicks.z(p))];
+            if (to == this || !to.blockEvents.add(p, blockEvents.block(), blockEvents.a(), blockEvents.b())) blockEventsDropped++;
+        }
+        for (Region to : world.regions) if (to != this) movingPistons.moveTo(to.movingPistons, world, to.id);
         rerouteRing(inbox(epoch));
         rerouteRing(inbox(epoch - 1));
         rerouteRing(overflow);

@@ -14,7 +14,7 @@ import java.lang.foreign.ValueLayout;
  * {@link NeighborUpdater}), shape updates, {@code SignalGetter}, {@code RedStoneWireBlock} with
  * {@code DefaultRedstoneWireEvaluator}, {@code DiodeBlock}/{@code RepeaterBlock}, {@code RedstoneTorchBlock} and
  * {@code RedstoneWallTorchBlock}, {@code ComparatorBlock}, {@code ObserverBlock}, {@code LeverBlock},
- * {@code ButtonBlock}, {@code RedstoneLampBlock}, {@code TntBlock}, {@code FallingBlock} and {@code LevelTicks}
+ * {@code ButtonBlock}, pistons (see {@link Pistons}), {@code RedstoneLampBlock}, {@code TntBlock}, {@code FallingBlock} and {@code LevelTicks}
  * ordering. Method names follow Mojang's; each cites the vanilla method it reproduces.
  *
  * <h2>Time</h2>
@@ -30,7 +30,7 @@ import java.lang.foreign.ValueLayout;
  * see that region's live state ({@link BlockStorage#getShared}).
  *
  * <h2>Not ported</h2>
- * Pistons, pressure plates, tripwires, daylight detectors, targets and other signal sources (their signal is 0);
+ * Pressure plates, tripwires, daylight detectors, targets and other signal sources (their signal is 0);
  * comparator inputs whose value lives in a block entity (containers, jukebox, lectern, ...: they read 0) or an
  * entity (item frames); buttons pressed by arrows; {@code updateShape} of blocks outside this set (fences, walls,
  * ...); item drops of blocks that lose support.
@@ -103,6 +103,7 @@ final class Redstone {
         boolean moved = (flags & UPDATE_MOVE_BY_PISTON) != 0;
         // LevelChunk.setBlockState: the old block's block entity goes when the block type changes.
         if (kind(old) == COMPARATOR && block(old) != block(state)) r.comparators.remove(ScheduledTicks.pack(x, y, z));
+        if (kind(old) == MOVING_PISTON && block(old) != block(state)) r.movingPistons.remove(ScheduledTicks.pack(x, y, z));
         if (block(old) != block(state) && ((flags & UPDATE_NEIGHBORS) != 0 || moved)) {
             affectNeighborsAfterRemoval(r, old, x, y, z, moved);
         }
@@ -224,6 +225,8 @@ final class Redstone {
                 // TntBlock.neighborChanged
                 if (hasNeighborSignal(r, x, y, z)) primeAndRemove(r, x, y, z);
             }
+            case PISTON -> Pistons.neighborChanged(r, st, x, y, z);
+            case PISTON_HEAD -> Pistons.headNeighborChanged(r, st, x, y, z);
             default -> {}
         }
     }
@@ -258,12 +261,13 @@ final class Redstone {
                 if (kind(old) != TNT && hasNeighborSignal(r, x, y, z)) primeAndRemove(r, x, y, z);
             }
             case FALLING -> scheduleTick(r, x, y, z, block(st), FALL_DELAY, NORMAL); // FallingBlock.onPlace
+            case PISTON -> Pistons.onPlace(r, st, x, y, z, old);
             default -> {}
         }
     }
 
     /** {@code BlockState.affectNeighborsAfterRemoval(level, pos, movedByPiston)} of the removed state. */
-    private static void affectNeighborsAfterRemoval(Region r, int old, int x, int y, int z, boolean moved) {
+    static void affectNeighborsAfterRemoval(Region r, int old, int x, int y, int z, boolean moved) {
         if (kind(old) == OBSERVER) {
             // ObserverBlock.affectNeighborsAfterRemoval (no piston check): a pulse in progress ends
             if (powered(old) && r.blockTicks.isScheduled(ScheduledTicks.pack(x, y, z), block(old))) {
@@ -285,6 +289,7 @@ final class Redstone {
                 // LeverBlock / ButtonBlock.affectNeighborsAfterRemoval
                 if (powered(old)) updateAttachedNeighbours(r, old, x, y, z);
             }
+            case PISTON_HEAD -> Pistons.headRemoved(r, old, x, y, z);
             default -> {}
         }
     }
@@ -296,7 +301,7 @@ final class Redstone {
     /** {@code BlockStateBase.updateNeighbourShapes}: each neighbour in {@code UPDATE_SHAPE_ORDER} W, E, N, S, D, U. */
     private static final int[] UPDATE_SHAPE_ORDER = {WEST, EAST, NORTH, SOUTH, DOWN, UP};
 
-    private static void updateNeighbourShapes(Region r, int st, int x, int y, int z, int flags, int recursionLeft) {
+    static void updateNeighbourShapes(Region r, int st, int x, int y, int z, int flags, int recursionLeft) {
         for (int dir : UPDATE_SHAPE_ORDER) {
             neighborShapeChanged(r, dir ^ 1, x + OX[dir], y + OY[dir], z + OZ[dir], st, flags, recursionLeft);
         }
@@ -309,7 +314,7 @@ final class Redstone {
     }
 
     /** {@code RedStoneWireBlock.updateIndirectNeighbourShapes} (a no-op for every other block). */
-    private static void updateIndirectNeighbourShapes(Region r, int st, int x, int y, int z, int flags, int recursionLeft) {
+    static void updateIndirectNeighbourShapes(Region r, int st, int x, int y, int z, int flags, int recursionLeft) {
         if (!isWire(st)) return;
         for (int dir : HORIZONTAL) {
             if (wireSide(st, dir) == NONE) continue;
@@ -408,6 +413,10 @@ final class Redstone {
                 // FaceAttachedHorizontalDirectionalBlock.updateShape: the support is opposite the connected side
                 int c = connected(st);
                 return dir == (c ^ 1) && !sturdy(neighborState, c, FULL) ? AIR : st;
+            }
+            case PISTON_HEAD -> {
+                // PistonHeadBlock.updateShape: the side toward the base changed and it no longer holds the head
+                return dir == (facing(st) ^ 1) && !Pistons.headCanSurviveOn(st, neighborState) ? AIR : st;
             }
             case TORCH -> {
                 // BaseTorchBlock.updateShape: canSurvive = canSupportCenter(below, UP)
