@@ -10,10 +10,11 @@ import io.netty.buffer.PooledByteBufAllocator;
 import java.util.SplittableRandom;
 import net.minestom.server.instance.palette.Palette;
 import net.minestom.server.network.NetworkBuffer;
+import net.minestom.server.network.packet.server.play.data.ChunkData;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-/** Our off-heap encoder's output is decoded by Minestom's own palette codec and must reproduce every block. */
+/** Our off-heap encoder's output is decoded by Minestom's own chunk-section codec and must reproduce every block. */
 class ChunkEncoderTest {
     private final NativeMemory mem = new NativeMemory();
 
@@ -26,18 +27,20 @@ class ChunkEncoderTest {
         byte[] bytes = new byte[encoded.readableBytes()];
         encoded.getBytes(encoded.readerIndex(), bytes);
         NetworkBuffer nb = NetworkBuffer.wrap(bytes, 0, bytes.length);
+        var sectionType = ChunkData.Section.networkType(64);
         for (int sy = 0; sy < s.sections(); sy++) {
-            short count = nb.read(NetworkBuffer.SHORT);
-            Palette p = nb.read(Palette.BLOCK_SERIALIZER);
-            int nonAir = 0;
+            ChunkData.Section section = nb.read(sectionType);
+            Palette p = section.blockStates();
+            int nonAir = 0, fluids = 0;
             for (int y = 0; y < 16; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) {
                 int ours = s.get(cx * 16 + x, s.minY() + sy * 16 + y, cz * 16 + z);
                 if (ours != 0) nonAir++;
+                if (Protocol.isFluid(ours)) fluids++;
                 assertEquals(Protocol.vanillaState(ours), p.get(x, y, z), "section " + sy + " at " + x + "," + y + "," + z);
             }
-            assertEquals(nonAir, count, "non-air count of section " + sy);
-            Palette biomes = nb.read(Palette.biomeSerializer(64));
-            assertEquals(biome, biomes.get(0, 0, 0));
+            assertEquals(nonAir, section.blockCount(), "non-air count of section " + sy);
+            assertEquals(fluids, section.liquidCount(), "fluid count of section " + sy);
+            assertEquals(biome, section.biomes().get(0, 0, 0));
         }
         assertEquals(bytes.length, nb.readIndex(), "no trailing bytes");
     }

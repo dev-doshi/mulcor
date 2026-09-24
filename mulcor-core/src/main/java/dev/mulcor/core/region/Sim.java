@@ -8,19 +8,17 @@ import dev.mulcor.core.World;
 import dev.mulcor.memory.BlockStorage;
 import dev.mulcor.memory.EntityTable;
 import dev.mulcor.memory.OffHeapInventory;
-import dev.mulcor.memory.OffHeapRing;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
 /**
- * Game mechanics, run by the thread currently ticking a region. Every write goes either to data the region
- * owns or into a message to the owning region. The code is simplified (not vanilla-accurate) but exercises
- * the same concurrency patterns: block mutation, entity movement across boundaries, explosions and shared
- * inventories.
+ * Game mechanics, run by the thread currently ticking a region: bot behaviour, mining and placing, TNT, chests.
+ * Movement and collisions live in {@link Physics}, block updates and redstone in {@link Redstone}. Every write goes
+ * either to data the region owns or into a message to the owning region. The code is simplified (not
+ * vanilla-accurate) but exercises the same concurrency patterns.
  */
 final class Sim {
     private static final ValueLayout.OfInt I = ValueLayout.JAVA_INT;
-    private static final float WALK = 0.2f;
 
     private Sim() {}
 
@@ -35,56 +33,15 @@ final class Sim {
             if (type == TNT) {
                 removed = tickTnt(r, i);
             } else if (type == PLAYER) {
-                removed = handOff(r, i); // client-authoritative: no AI, no physics
+                removed = Physics.handOff(r, i); // client-authoritative: no AI, no physics
+            } else if (type == FALLING_BLOCK) {
+                removed = Physics.step(r, i);
             } else {
                 if (r.ai) bot(r, i);
-                removed = physics(r, i);
+                removed = Physics.step(r, i);
             }
             if (!removed) i++;
         }
-    }
-
-    /** Gravity, walking with 1-block step-up, then hand-off if the entity crossed into another region. */
-    private static boolean physics(Region r, int s) {
-        EntityTable t = r.table;
-        BlockStorage b = r.world.blocks;
-        double x = t.x(s), y = t.y(s), z = t.z(s);
-        int bx = (int) Math.floor(x), by = (int) Math.floor(y), bz = (int) Math.floor(z);
-        if (by > b.minY() + 1 && !Blocks.isSolid(b.getShared(bx, by - 1, bz))) {
-            y -= 1;
-            by--;
-        }
-        float vx = t.vx(s), vz = t.vz(s);
-        if (vx != 0f || vz != 0f) {
-            double nx = x + vx, nz = z + vz;
-            if (nx < 0.5 || nx > r.world.sizeX() - 0.5) { vx = -vx; nx = x; }
-            if (nz < 0.5 || nz > r.world.sizeZ() - 0.5) { vz = -vz; nz = z; }
-            int nbx = (int) Math.floor(nx), nbz = (int) Math.floor(nz);
-            if ((nbx != bx || nbz != bz) && Blocks.isSolid(b.getShared(nbx, by, nbz))) {
-                if (by + 2 < b.maxYExclusive() && !Blocks.isSolid(b.getShared(nbx, by + 1, nbz))
-                        && !Blocks.isSolid(b.getShared(nbx, by + 2, nbz))) {
-                    y += 1; // step up
-                    x = nx;
-                    z = nz;
-                } else {
-                    vx = -vx;
-                    vz = -vz;
-                }
-            } else {
-                x = nx;
-                z = nz;
-            }
-            t.setVel(s, vx, 0f, vz);
-        }
-        t.setPos(s, x, y, z);
-        return handOff(r, s);
-    }
-
-    /** Hand the entity to the region that owns its current position, if that is not us. */
-    private static boolean handOff(Region r, int s) {
-        EntityTable t = r.table;
-        int owner = r.world.ownerOfBlock((int) Math.floor(t.x(s)), (int) Math.floor(t.z(s)));
-        return owner != r.id && r.migrate(s, owner);
     }
 
     // ---- bots --------------------------------------------------------------------------------------------------
@@ -98,7 +55,7 @@ final class Sim {
             case MINER -> {
                 if (((e + eid) & 3) == 0) {
                     int x = (int) Math.floor(t.x(s)) + Rng.bounded(h, 5) - 2;
-                    int z = (int) Math.floor(t.z(s)) + Rng.bounded(h >>> 8, 5) - 2;
+                    int z = (int) Math.floor(t.z(s)) + Rng.pick(h, 8, 5) - 2;
                     int y = (int) Math.floor(t.y(s)) - 1;
                     int st = r.world.blocks.getShared(x, y, z);
                     if (Blocks.isMineable(st)) {
@@ -117,14 +74,14 @@ final class Sim {
                 double dx = tx + 0.5 - t.x(s), dz = tz + 0.5 - t.z(s);
                 if (target == 0 || dx * dx + dz * dz < 4) {
                     tx = Rng.bounded(h, r.world.sizeX());
-                    tz = Rng.bounded(h >>> 20, r.world.sizeZ());
+                    tz = Rng.pick(h, 20, r.world.sizeZ());
                     t.setAux1(s, tx | (tz << 16));
                 }
                 if ((e + eid) % 10 == 0) {
                     int dir = r.path.step(r.world.blocks, (int) Math.floor(t.x(s)), (int) Math.floor(t.y(s)),
                             (int) Math.floor(t.z(s)), tx, tz);
                     if (dir >= 0) {
-                        t.setVel(s, ((dir & 3) - 1) * WALK, 0f, (((dir >> 2) & 3) - 1) * WALK);
+                        walk(t, s, (dir & 3) - 1, ((dir >> 2) & 3) - 1);
                     } else {
                         t.setAux1(s, 0); // unreachable from here: pick another waypoint
                     }
@@ -135,16 +92,16 @@ final class Sim {
                     int chest = Rng.bounded(h, r.world.chestCount());
                     int slot = firstNonEmpty(r.world.players, eid);
                     if (slot >= 0 && (h & (1L << 40)) != 0) {
-                        putIntoChest(r, eid, chest, 1 + Rng.bounded(h >>> 44, 8));
+                        putIntoChest(r, eid, chest, 1 + Rng.pick(h, 44, 8));
                     } else {
-                        takeFromChest(r, eid, chest, Rng.bounded(h >>> 24, World.CHEST_SLOTS), 1 + Rng.bounded(h >>> 50, 8));
+                        takeFromChest(r, eid, chest, Rng.pick(h, 24, World.CHEST_SLOTS), 1 + Rng.pick(h, 50, 8));
                     }
                 }
                 wander(r, s, e, eid, h, 60);
             }
             case BOMBER -> {
                 if ((e + eid) % 400 == 0) {
-                    spawnTnt(r, t.x(s), t.y(s), t.z(s), 30);
+                    spawnTnt(r, t.x(s), t.y(s), t.z(s), 30, h);
                 }
                 wander(r, s, e, eid, h, 30);
             }
@@ -154,8 +111,7 @@ final class Sim {
 
     private static void wander(Region r, int s, long e, int eid, long h, int period) {
         if ((e + eid) % period == 0) {
-            r.table.setVel(s, (Rng.bounded(h >>> 12, 3) - 1) * WALK * 0.5f, 0f,
-                    (Rng.bounded(h >>> 16, 3) - 1) * WALK * 0.5f);
+            walk(r.table, s, Rng.pick(h, 12, 3) - 1, Rng.pick(h, 16, 3) - 1);
         }
     }
 
@@ -189,7 +145,7 @@ final class Sim {
         if (!Blocks.isMineable(st)) return; // already gone: whoever arrived first got it
         b.set(x, y, z, Blocks.AIR);
         deliver(r, eid, st, 1);
-        updateNeighbours(r, x, y, z);
+        Redstone.blockChanged(r, x, y, z);
     }
 
     /** Entity {@code eid} (owned by {@code r}) places one {@code item} from its inventory. */
@@ -212,7 +168,7 @@ final class Sim {
     private static void placeOwned(Region r, int eid, int x, int y, int z, int item) {
         BlockStorage b = r.world.blocks;
         if (b.inBounds(x, y, z) && b.get(x, y, z) == Blocks.AIR && b.set(x, y, z, item) != BlockStorage.FAILED) {
-            updateNeighbours(r, x, y, z);
+            Redstone.blockChanged(r, x, y, z);
         } else {
             deliver(r, eid, item, 1); // occupied or out of world: refund
         }
@@ -286,75 +242,57 @@ final class Sim {
 
     // ---- TNT ---------------------------------------------------------------------------------------------------
 
-    static void spawnTnt(Region r, double x, double y, double z, int fuse) {
+    /**
+     * {@code new PrimedTnt(level, x, y, z, igniter)}: fuse 80 by default, and
+     * {@code d0 = random.nextDouble() * (double) ((float) Math.PI * 2F)};
+     * {@code deltaMovement = (-Math.sin(d0) * 0.02D, (double) 0.2F, -Math.cos(d0) * 0.02D)}.
+     * {@code random} is a hash standing in for the level RNG (same distribution, not the same sequence).
+     */
+    static void spawnTnt(Region r, double x, double y, double z, int fuse, long random) {
         int eid = r.spawn(x, y, z, TNT, 0);
-        if (eid >= 0) r.table.setAux1(r.world.directory.slot(eid), fuse);
+        if (eid < 0) return;
+        int s = r.world.directory.slot(eid);
+        double d0 = (Rng.mix(random) >>> 11) * 0x1.0p-53 * (double) ((float) Math.PI * 2F);
+        r.table.setVel(s, -Math.sin(d0) * 0.02, (double) 0.2F, -Math.cos(d0) * 0.02);
+        r.table.setAux1(s, fuse);
     }
 
+    static void spawnTnt(Region r, double x, double y, double z, int fuse) {
+        spawnTnt(r, x, y, z, fuse, Rng.mix(r.epoch, Double.doubleToLongBits(x), Double.doubleToLongBits(z)));
+    }
+
+    /**
+     * {@code PrimedTnt.tick}: gravity, move, drag and bounce ({@link Physics#gravityMoveDrag}); then
+     * {@code fuse = getFuse() - 1}; at {@code fuse <= 0} it is discarded and explodes at {@code getY(0.0625D)}
+     * ({@code y + 0.98F * 0.0625}) with power 4.0F.
+     */
     private static boolean tickTnt(Region r, int s) {
         EntityTable t = r.table;
         int fuse = t.aux1(s) - 1;
-        if (fuse > 0) {
-            t.setAux1(s, fuse);
-            return physics(r, s);
-        }
-        int cx = (int) Math.floor(t.x(s)), cy = (int) Math.floor(t.y(s)), cz = (int) Math.floor(t.z(s));
+        t.setAux1(s, fuse);
+        if (fuse > 0) return Physics.step(r, s);
+        Physics.gravityMoveDrag(r, s);
+        double x = t.x(s), y = t.y(s) + (double) Physics.height(TNT) * 0.0625, z = t.z(s);
         r.despawn(s);
-        explode(r, cx, cy, cz, TNT_RADIUS);
+        Explosion.explode(r, x, y, z, Explosion.TNT_POWER);
         return true;
     }
 
-    /** Carve our own cells, push our own entities, and tell every neighbouring owner to do the same next epoch. */
-    private static void explode(Region r, int cx, int cy, int cz, int radius) {
-        r.explosions++;
-        carveOwned(r, cx, cy, cz, radius);
-        World w = r.world;
-        int cb = r.cfg.cellBlocks();
-        int x0 = Math.max(0, cx - radius) / cb, x1 = Math.min(w.sizeX() - 1, cx + radius) / cb;
-        int z0 = Math.max(0, cz - radius) / cb, z1 = Math.min(w.sizeZ() - 1, cz + radius) / cb;
-        int sent0 = -1, sent1 = -1, sent2 = -1;
-        for (int gx = x0; gx <= x1; gx++) {
-            for (int gz = z0; gz <= z1; gz++) {
-                int owner = w.partition.regionAt(gx, gz);
-                if (owner == r.id || owner == sent0 || owner == sent1 || owner == sent2) continue;
-                if (sent0 < 0) sent0 = owner; else if (sent1 < 0) sent1 = owner; else sent2 = owner;
-                MemorySegment m = r.begin(Msg.EXPLOSION);
-                m.set(I, Msg.A, cx);
-                m.set(I, Msg.B, cy);
-                m.set(I, Msg.C, cz);
-                m.set(I, Msg.D, radius);
-                r.send(owner);
-            }
-        }
+    /**
+     * Yaw that faces (dx, dz), as {@code MoveControl.tick} computes it:
+     * {@code (float) (atan2(dz, dx) * (double) (180F / (float) Math.PI)) - 90.0F}. (Vanilla uses its table-based
+     * {@code Mth.atan2}; AI direction choice is Mulcor's own, see {@link Physics}.)
+     */
+    static float yawTowards(double dx, double dz) {
+        return (float) (Math.atan2(dz, dx) * (double) (180F / (float) Math.PI)) - 90.0F;
     }
 
-    private static void carveOwned(Region r, int cx, int cy, int cz, int radius) {
-        BlockStorage b = r.world.blocks;
-        int r2 = radius * radius;
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dz = -radius; dz <= radius; dz++) {
-                int x = cx + dx, z = cz + dz;
-                if (x < 0 || z < 0 || x >= r.world.sizeX() || z >= r.world.sizeZ()) continue;
-                if (r.world.ownerOfBlock(x, z) != r.id) continue;
-                for (int dy = -radius; dy <= radius; dy++) {
-                    if (dx * dx + dy * dy + dz * dz > r2) continue;
-                    int y = cy + dy;
-                    if (Blocks.isMineable(b.get(x, y, z))) {
-                        b.set(x, y, z, Blocks.AIR);
-                        r.destroyedBlocks++;
-                    }
-                }
-            }
-        }
-        EntityTable t = r.table;
-        double reach = radius + 2;
-        for (int s = 0; s < t.count(); s++) {
-            double dx = t.x(s) - (cx + 0.5), dz = t.z(s) - (cz + 0.5);
-            double d2 = dx * dx + dz * dz;
-            if (d2 < reach * reach && d2 > 1e-6) {
-                double inv = 0.6 / Math.sqrt(d2);
-                t.setVel(s, (float) (dx * inv), 0f, (float) (dz * inv));
-            }
+    /** What {@code MoveControl} leaves for {@code travel}: {@code yRot} toward the direction, {@code zza = speed}. */
+    static void walk(EntityTable t, int s, double dx, double dz) {
+        if (dx == 0 && dz == 0) {
+            t.setInput(s, t.inputYaw(s), 0F);
+        } else {
+            t.setInput(s, yawTowards(dx, dz), Physics.ZOMBIE_SPEED);
         }
     }
 
@@ -366,8 +304,10 @@ final class Sim {
         switch (kind) {
             case Msg.BLOCK_BREAK -> breakOwned(r, seg.get(I, off + Msg.E), a, b, c);
             case Msg.BLOCK_PLACE -> placeOwned(r, seg.get(I, off + Msg.E), a, b, c, d);
-            case Msg.EXPLOSION -> carveOwned(r, a, b, c, d);
-            case Msg.REDSTONE -> scheduleUpdate(r, a, b, c);
+            case Msg.EXPLOSION -> Explosion.receive(r, seg, off);
+            case Msg.EXPLOSION_BLOCKS -> Explosion.receiveBlocks(r, seg, off);
+            case Msg.NEIGHBOR_UPDATE -> Redstone.update(r, a, b, c, seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE));
+            case Msg.SCHEDULED_TICK -> Redstone.scheduleAt(r, a, b, c, seg.get(ValueLayout.JAVA_LONG, off + Msg.DEADLINE), d);
             case Msg.INV_TAKE -> {
                 long taken = r.world.chests.take(a, b, c);
                 deliver(r, d, OffHeapInventory.item(taken), OffHeapInventory.count(taken));
@@ -377,77 +317,11 @@ final class Sim {
         }
     }
 
-    // ---- redstone ----------------------------------------------------------------------------------------------
+    // ---- commands ----------------------------------------------------------------------------------------------
 
+    /** SET_BLOCK input: set a block this region owns and run the resulting updates. */
     static void setBlockAndUpdate(Region r, int x, int y, int z, int state) {
-        if (r.world.ownerOfBlock(x, z) != r.id) return;
-        r.world.blocks.set(x, y, z, state);
-        scheduleUpdate(r, x, y, z);
-        updateNeighbours(r, x, y, z);
-    }
-
-    /** Queue a re-evaluation of (x,y,z) with its owner: locally, or via a REDSTONE message next epoch. */
-    static void scheduleUpdate(Region r, int x, int y, int z) {
-        int owner = r.world.ownerOfBlock(x, z);
-        if (owner != r.id) {
-            MemorySegment m = r.begin(Msg.REDSTONE);
-            m.set(I, Msg.A, x);
-            m.set(I, Msg.B, y);
-            m.set(I, Msg.C, z);
-            r.send(owner);
-            return;
-        }
-        OffHeapRing q = r.updates;
-        long pos = q.tryClaim();
-        if (pos < 0) {
-            r.updatesDropped++;
-            return;
-        }
-        long o = q.payloadOffset(pos);
-        q.segment().set(I, o, x);
-        q.segment().set(I, o + 4, y);
-        q.segment().set(I, o + 8, z);
-        q.publish(pos);
-    }
-
-    /** Schedule updates for adjacent redstone wires only, so ordinary mining does not flood the queue. */
-    private static void updateNeighbours(Region r, int x, int y, int z) {
-        BlockStorage b = r.world.blocks;
-        if (Blocks.isWire(b.getShared(x + 1, y, z))) scheduleUpdate(r, x + 1, y, z);
-        if (Blocks.isWire(b.getShared(x - 1, y, z))) scheduleUpdate(r, x - 1, y, z);
-        if (Blocks.isWire(b.getShared(x, y, z + 1))) scheduleUpdate(r, x, y, z + 1);
-        if (Blocks.isWire(b.getShared(x, y, z - 1))) scheduleUpdate(r, x, y, z - 1);
-    }
-
-    /** Process the updates queued before this tick; updates they schedule run next tick. */
-    static void processUpdates(Region r) {
-        OffHeapRing q = r.updates;
-        int n = q.size();
-        for (int i = 0; i < n; i++) {
-            long pos = q.tryAcquire();
-            if (pos < 0) break;
-            long o = q.payloadOffset(pos);
-            int x = q.segment().get(I, o), y = q.segment().get(I, o + 4), z = q.segment().get(I, o + 8);
-            q.release(pos);
-            updateWire(r, x, y, z);
-        }
-    }
-
-    /** Wire power = max(15 next to a redstone block, neighbour wire power − 1). Neighbours may be foreign (shared read). */
-    private static void updateWire(Region r, int x, int y, int z) {
-        BlockStorage b = r.world.blocks;
-        int st = b.get(x, y, z);
-        if (!Blocks.isWire(st)) return;
-        int power = Math.max(Math.max(source(b, x + 1, y, z), source(b, x - 1, y, z)),
-                Math.max(source(b, x, y, z + 1), source(b, x, y, z - 1)));
-        if (power == Blocks.wirePower(st)) return;
-        b.set(x, y, z, Blocks.WIRE + power);
-        updateNeighbours(r, x, y, z);
-    }
-
-    private static int source(BlockStorage b, int x, int y, int z) {
-        int st = b.getShared(x, y, z);
-        if (st == Blocks.REDSTONE_BLOCK) return 15;
-        return Blocks.isWire(st) ? Math.max(0, Blocks.wirePower(st) - 1) : 0;
+        if (r.world.ownerOfBlock(x, z) != r.id || r.world.blocks.set(x, y, z, state) == BlockStorage.FAILED) return;
+        Redstone.blockChanged(r, x, y, z);
     }
 }

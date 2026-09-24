@@ -275,7 +275,8 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
         send(new SpawnPositionPacket(new WorldPos(Vanilla.WORLD, new Vec(spawnX, spawnY, spawnZ)), 0f, 0f));
         send(new PlayerPositionAndLookPacket(1, new Vec(spawnX, spawnY, spawnZ), Vec.ZERO, 0f, 0f, 0));
         send(new ChangeGameStatePacket(ChangeGameStatePacket.Reason.LEVEL_CHUNKS_LOAD_START, 0f));
-        ctx.flush();
+        // Not flushed yet: the play pipeline (which counts the player online) is installed first, and its first
+        // write flushes these packets in order. Otherwise a fast client could finish joining before we see it.
 
         var decoder = new IngressDecoder(entity, server.sink(), compression);
         var ingress = new IngressHandler(decoder, new TokenBucket(server.perConnectionBurst(), server.perConnectionRate()),

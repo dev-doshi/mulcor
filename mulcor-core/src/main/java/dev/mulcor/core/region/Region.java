@@ -7,6 +7,7 @@ import dev.mulcor.memory.EntityRecord;
 import dev.mulcor.memory.EntityTable;
 import dev.mulcor.memory.OffHeapRing;
 import dev.mulcor.memory.Ownership;
+import dev.mulcor.memory.ScheduledTicks;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
@@ -33,7 +34,23 @@ public final class Region {
     public final OffHeapRing ingress;
     private final OffHeapRing overflow;
     final OffHeapRing updates;
+    /** Scheduled block ticks (repeaters, torches, lamps, falling sand), ordered like vanilla's tick list. */
+    final ScheduledTicks blockTicks;
     final MemorySegment scratch;
+    /** Block evaluations left in this tick (see {@link Redstone#UPDATE_BUDGET}). */
+    int updateBudget;
+
+    // Spatial hash for pushing, rebuilt each tick without allocation (stamped buckets).
+    static final int GRID_BITS = 12;
+    final int[] gridHead = new int[1 << GRID_BITS], gridStamp = new int[1 << GRID_BITS], gridNext, gridCellX, gridCellZ;
+    final double[] gridX, gridZ;
+    int gridGen;
+
+    // Border-entity snapshots, double-buffered by epoch parity: written during epoch e, read by neighbours in e+1.
+    private final MemorySegment[] snapshots = new MemorySegment[2];
+    private final int[] snapshotCounts = new int[2];
+    private final long[] snapshotEpochs = {-1, -1};
+    private final int snapshotCapacity;
     private final MemorySegment retry;
     final Pathfinder path = new Pathfinder();
     private final OffHeapRing.SlotHandler onMessage = this::handleMessage;
@@ -56,6 +73,16 @@ public final class Region {
     public long ticks, transfersOut, transfersIn, transferRejects, transferDeferred, transferCancelled;
     public long droppedItems, destroyedBlocks, explosions, forwarded, inputs, messages, overflowed, undeliverable;
     public long stateViolations, updatesDropped, spawnFailures, joins, leaves;
+    public long blockUpdates, crossUpdates, scheduledTicks, redstoneChanges, tntPrimed, updatesDeferred, ticksDropped;
+    public long pushes, borderPushes, destroyedOther;
+    /** Scratch set of positions one explosion destroys (packed position + 1; 0 = empty). */
+    final long[] blastSet = new long[1 << 13];
+    final int[] blastOwners = new int[16];
+    /** Block states around the current explosion's centre (see {@code Explosion.select}). */
+    final int[] blastCache = new int[Explosion.CACHE_D * Explosion.CACHE_D * Explosion.CACHE_D];
+    int blastOx, blastOy, blastOz, blastHits;
+    /** Slots of {@link #blastSet} in use, so it can be cleared without touching all of it. */
+    final int[] blastUsed = new int[1 << 12];
 
     public Region(int id, World world, boolean active) {
         this.id = id;
@@ -68,7 +95,16 @@ public final class Region {
         this.inbox[1] = new OffHeapRing(mem, cfg.inboxCapacity(), Msg.BYTES);
         this.ingress = new OffHeapRing(mem, cfg.ingressCapacity(), Input.BYTES);
         this.overflow = new OffHeapRing(mem, cfg.inboxCapacity(), Msg.BYTES);
-        this.updates = new OffHeapRing(mem, 4096, 16);
+        this.updates = new OffHeapRing(mem, 16384, 16);
+        this.blockTicks = new ScheduledTicks(mem, 16384);
+        this.gridNext = new int[cfg.regionEntityCapacity()];
+        this.gridCellX = new int[cfg.regionEntityCapacity()];
+        this.gridCellZ = new int[cfg.regionEntityCapacity()];
+        this.gridX = new double[cfg.regionEntityCapacity()];
+        this.gridZ = new double[cfg.regionEntityCapacity()];
+        this.snapshotCapacity = Math.min(cfg.regionEntityCapacity(), 2048);
+        this.snapshots[0] = mem.allocate((long) snapshotCapacity * EntityRecord.BYTES);
+        this.snapshots[1] = mem.allocate((long) snapshotCapacity * EntityRecord.BYTES);
         this.scratch = mem.allocate(Msg.BYTES);
         this.retry = mem.allocate(Msg.BYTES);
         int cap = Integer.highestOneBit(Math.max(2, cfg.sampleCapacity()));
@@ -106,11 +142,16 @@ public final class Region {
         }
         this.epoch = epoch;
         this.ai = aiEnabled;
+        updateBudget = Redstone.UPDATE_BUDGET;
         retryOverflow();
         messages += inbox(epoch - 1).drain(onMessage, Integer.MAX_VALUE);
         ingress.drain(onInput, cfg.ingressBudget());
-        Sim.processUpdates(this);
-        Sim.simulate(this);
+        Redstone.processUpdates(this);   // cascades from last epoch's cross-border updates and this tick's input
+        Redstone.runScheduled(this);     // due block ticks, each followed by its cascade
+        Physics.pushAll(this);           // entity pushing (momentum transfer), from start-of-tick positions
+        Sim.simulate(this);              // AI, physics, TNT, falling blocks
+        Redstone.processUpdates(this);   // cascades caused by entities (explosions, landing sand)
+        Physics.publishSnapshot(this);
         long dt = System.nanoTime() - t0;
         lastTickNanos = dt;
         costEwma = costEwma == 0 ? dt : costEwma * 0.8 + dt * 0.2;
@@ -125,7 +166,38 @@ public final class Region {
     MemorySegment begin(int kind) {
         scratch.fill((byte) 0);
         scratch.set(I, Msg.KIND, kind);
+        scratch.set(L, Msg.DEADLINE, epoch);
         return scratch;
+    }
+
+    // ---- border snapshots ---------------------------------------------------------------------------------------
+
+    /** The snapshot this region published during {@code epoch}, or null if it did not tick then. */
+    MemorySegment snapshot(long epoch) {
+        int p = (int) (epoch & 1);
+        return snapshotEpochs[p] == epoch ? snapshots[p] : null;
+    }
+
+    int snapshotCount(long epoch) {
+        return snapshotCounts[(int) (epoch & 1)];
+    }
+
+    MemorySegment snapshotForWrite() {
+        return snapshots[(int) (epoch & 1)];
+    }
+
+    int snapshotCapacity() {
+        return snapshotCapacity;
+    }
+
+    void publishSnapshot(int count) {
+        int p = (int) (epoch & 1);
+        snapshotCounts[p] = count;
+        snapshotEpochs[p] = epoch;
+    }
+
+    public int scheduledTickCount() {
+        return blockTicks.size();
     }
 
     /** Send {@link #scratch} to region {@code dst}. Delivery happens next epoch. */
@@ -368,7 +440,7 @@ public final class Region {
         int x = seg.get(I, off + Input.X), y = seg.get(I, off + Input.Y), z = seg.get(I, off + Input.Z);
         int a = seg.get(I, off + Input.A);
         switch (seg.get(I, off + Input.KIND)) {
-            case Input.MOVE -> table.setVel(slot, a / 1000f, 0f, seg.get(I, off + Input.B) / 1000f);
+            case Input.MOVE -> Sim.walk(table, slot, a, seg.get(I, off + Input.B));
             case Input.DIG -> Sim.dig(this, eid, x, y, z);
             case Input.PLACE -> Sim.place(this, eid, x, y, z, a);
             case Input.CHEST -> {
@@ -412,11 +484,29 @@ public final class Region {
         moveRing(overflow, to.overflow);
         moveRing(ingress, to.ingress);
         moveRing(updates, to.updates);
+        moveTicks(to);
+    }
+
+    /** Commit phase: hand scheduled ticks to {@code to} (merge), keeping their due epoch and priority. */
+    private void moveTicks(Region to) {
+        while (blockTicks.size() > 0) {
+            long due = blockTicks.peekDue();
+            int priority = blockTicks.peekPriority();
+            long pos = blockTicks.poll();
+            if (!to.blockTicks.schedule(due, priority, pos) && !to.blockTicks.isScheduled(pos)) to.ticksDropped++;
+        }
     }
 
     /** Commit phase: re-route everything held by this retired slot to the current owners. */
     public void forwardRetired(long epoch) {
         this.epoch = epoch;
+        while (blockTicks.size() > 0) {
+            long due = blockTicks.peekDue();
+            int priority = blockTicks.peekPriority();
+            long pos = blockTicks.poll();
+            Region to = world.regions[world.ownerOfBlock(ScheduledTicks.x(pos), ScheduledTicks.z(pos))];
+            if (to == this || (!to.blockTicks.schedule(due, priority, pos) && !to.blockTicks.isScheduled(pos))) ticksDropped++;
+        }
         rerouteRing(inbox(epoch));
         rerouteRing(inbox(epoch - 1));
         rerouteRing(overflow);
@@ -462,6 +552,7 @@ public final class Region {
     public String describeRings() {
         return "region " + id + " state=" + state.get() + " inbox0=" + inbox[0].size() + " inbox1=" + inbox[1].size()
                 + " overflow=" + overflow.size() + " ingress=" + ingress.size() + " updates=" + updates.size()
+                + " ticks=" + blockTicks.size()
                 + " entities=" + table.count();
     }
 

@@ -76,8 +76,9 @@ class EngineTest {
         }
     }
 
+    /** A wire line settles within one tick inside a region, and one epoch later on the far side of a border. */
     @Test
-    void redstoneCrossesRegionBoundaryWithOneEpochPerHop() {
+    void redstoneSettlesInstantlyInsideARegionAndOneEpochPerBorder() {
         try (var engine = new Engine(small().build())) {
             var w = engine.world;
             int y = w.surfaceY + 1, z = 5;
@@ -98,13 +99,12 @@ class EngineTest {
                     }
                 }
             }
+            int nearRegion = w.ownerOfBlock(first, z);
             for (int x = first; x <= last; x++) {
                 assertEquals(15 - (x - first), Blocks.wirePower(w.blocks.get(x, y, z)), "power at x=" + x);
                 assertTrue(poweredAt[x] > 0, "wire " + x + " never reached final power");
-                if (x > first) {
-                    assertEquals(1, poweredAt[x] - poweredAt[x - 1],
-                            "each hop (including the region boundary at x=64) settles exactly one epoch later");
-                }
+                long expected = poweredAt[first] + (w.ownerOfBlock(x, z) == nearRegion ? 0 : 1);
+                assertEquals(expected, poweredAt[x], "x=" + x + ": same tick in the source's region, +1 epoch across x=64");
             }
         }
     }

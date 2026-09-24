@@ -11,7 +11,7 @@ public final class Input {
     public static final long A = 20, B = 24, C = 28;
     public static final int BYTES = 32;
 
-    /** A,B = velocity x,z in thousandths of a block per tick. */
+    /** A,B = walk direction x,z (any scale; 0,0 = stop). The mob faces it and walks at its movement speed. */
     public static final int MOVE = 1;
     /** X,Y,Z = block to break. */
     public static final int DIG = 2;

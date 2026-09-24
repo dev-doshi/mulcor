@@ -66,18 +66,18 @@ public final class ClientFlood implements AutoCloseable {
     private static void sendOne(HeadlessVirtualClientProvider out, int client, long h, int chests, int size, int surface) {
         int kind = Rng.bounded(h, 100);
         if (kind < 55) {
-            out.send(Input.MOVE, client, 0, 0, 0, Rng.bounded(h >>> 8, 401) - 200, Rng.bounded(h >>> 20, 401) - 200, 0);
+            out.send(Input.MOVE, client, 0, 0, 0, Rng.pick(h, 8, 401) - 200, Rng.pick(h, 20, 401) - 200, 0);
         } else if (kind < 75) {
             // hot blocks where 4 cells meet: many regions dig the same block
-            int cx = 64 * (1 + Rng.bounded(h >>> 8, size / 64 - 1)), cz = 64 * (1 + Rng.bounded(h >>> 16, size / 64 - 1));
+            int cx = 64 * (1 + Rng.pick(h, 8, size / 64 - 1)), cz = 64 * (1 + Rng.pick(h, 16, size / 64 - 1));
             out.send(Input.DIG, client, cx - (int) (h >>> 40 & 1), surface - 1, cz - (int) (h >>> 41 & 1), 0, 0, 0);
         } else if (kind < 85) {
-            int cx = 64 * (1 + Rng.bounded(h >>> 8, size / 64 - 1)), cz = 64 * (1 + Rng.bounded(h >>> 16, size / 64 - 1));
+            int cx = 64 * (1 + Rng.pick(h, 8, size / 64 - 1)), cz = 64 * (1 + Rng.pick(h, 16, size / 64 - 1));
             out.send(Input.PLACE, client, cx - (int) (h >>> 40 & 1), surface - 1, cz - (int) (h >>> 41 & 1), Blocks.DIRT, 0, 0);
         } else {
-            int chest = Rng.bounded(h >>> 8, Math.min(4, chests)); // four hot chests shared by everyone
-            int count = Rng.bounded(h >>> 30, 2) == 0 ? 1 + Rng.bounded(h >>> 32, 16) : -(1 + Rng.bounded(h >>> 36, 16));
-            out.send(Input.CHEST, client, 0, 0, 0, chest, Rng.bounded(h >>> 16, 9), count);
+            int chest = Rng.pick(h, 8, Math.min(4, chests)); // four hot chests shared by everyone
+            int count = Rng.pick(h, 30, 2) == 0 ? 1 + Rng.pick(h, 32, 16) : -(1 + Rng.pick(h, 36, 16));
+            out.send(Input.CHEST, client, 0, 0, 0, chest, Rng.pick(h, 16, 9), count);
         }
     }
 
