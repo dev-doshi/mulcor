@@ -7,6 +7,8 @@ import net.minestom.server.network.packet.client.play.ClientAnimationPacket;
 import net.minestom.server.network.packet.client.play.ClientChatMessagePacket;
 import net.minestom.server.network.packet.client.play.ClientTeleportConfirmPacket;
 import net.minestom.server.network.packet.client.play.ClientClickWindowPacket;
+import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket;
+import net.minestom.server.network.packet.client.play.ClientStatusPacket;
 import net.minestom.server.network.packet.client.play.ClientCommandChatPacket;
 import net.minestom.server.network.packet.client.play.ClientEntityActionPacket;
 import net.minestom.server.network.packet.client.play.ClientInputPacket;
@@ -24,6 +26,13 @@ import net.minestom.server.network.packet.server.common.KeepAlivePacket;
 import net.minestom.server.network.packet.server.play.AcknowledgeBlockChangePacket;
 import net.minestom.server.network.packet.server.play.BlockActionPacket;
 import net.minestom.server.network.packet.server.play.BlockChangePacket;
+import net.minestom.server.network.packet.server.play.CloseWindowPacket;
+import net.minestom.server.network.packet.server.play.CollectItemPacket;
+import net.minestom.server.network.packet.server.play.OpenWindowPacket;
+import net.minestom.server.network.packet.server.play.SetCursorItemPacket;
+import net.minestom.server.network.packet.server.play.SetSlotPacket;
+import net.minestom.server.network.packet.server.play.UpdateHealthPacket;
+import net.minestom.server.network.packet.server.play.WindowItemsPacket;
 import net.minestom.server.network.packet.server.play.ChunkBatchFinishedPacket;
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket;
 import net.minestom.server.network.packet.server.play.EntityAnimationPacket;
@@ -59,6 +68,8 @@ public final class Protocol {
     public static final int PLAYER_COMMAND = id(ClientEntityActionPacket.class);
     public static final int SETTINGS = id(ClientSettingsPacket.class);
     public static final int ABILITIES = id(ClientPlayerAbilitiesPacket.class);
+    public static final int CLOSE_WINDOW = id(ClientCloseWindowPacket.class);
+    public static final int CLIENT_STATUS = id(ClientStatusPacket.class);
     public static final int TELEPORT_CONFIRM = id(ClientTeleportConfirmPacket.class);
     // Cold play packets the decoder hands to the session's mailbox (see ColdMailbox).
     public static final int CHAT = id(ClientChatMessagePacket.class);
@@ -84,6 +95,13 @@ public final class Protocol {
     public static final int OUT_ANIMATION = serverId(EntityAnimationPacket.class);
     public static final int OUT_HEAD_LOOK = serverId(EntityHeadLookPacket.class);
     public static final int OUT_SET_TIME = serverId(SetTimePacket.class);
+    public static final int OUT_SET_SLOT = serverId(SetSlotPacket.class);
+    public static final int OUT_WINDOW_ITEMS = serverId(WindowItemsPacket.class);
+    public static final int OUT_SET_CURSOR = serverId(SetCursorItemPacket.class);
+    public static final int OUT_OPEN_WINDOW = serverId(OpenWindowPacket.class);
+    public static final int OUT_CLOSE_WINDOW = serverId(CloseWindowPacket.class);
+    public static final int OUT_COLLECT = serverId(CollectItemPacket.class);
+    public static final int OUT_HEALTH = serverId(UpdateHealthPacket.class);
 
     public static final int PALETTE_MIN_BITS = Palette.BLOCK_PALETTE_MIN_BITS;
     public static final int PALETTE_MAX_BITS = Palette.BLOCK_PALETTE_MAX_BITS;

@@ -26,6 +26,22 @@ import net.minestom.server.network.packet.server.play.ChunkBatchFinishedPacket;
 import net.minestom.server.network.packet.server.play.ChunkBatchStartPacket;
 import net.minestom.server.network.packet.server.play.ChunkDataPacket;
 import net.minestom.server.network.packet.server.play.UpdateViewPositionPacket;
+import net.minestom.server.network.packet.server.play.SetSlotPacket;
+import net.minestom.server.network.packet.server.play.WindowItemsPacket;
+import net.minestom.server.network.packet.server.play.SetCursorItemPacket;
+import net.minestom.server.network.packet.server.play.OpenWindowPacket;
+import net.minestom.server.network.packet.server.play.CloseWindowPacket;
+import net.minestom.server.network.packet.server.play.CollectItemPacket;
+import net.minestom.server.network.packet.server.play.UpdateHealthPacket;
+import net.minestom.server.network.packet.server.play.EntityMetaDataPacket;
+import net.minestom.server.entity.Metadata;
+import net.minestom.server.item.ItemStack;
+import net.minestom.server.item.Material;
+import net.minestom.server.component.DataComponents;
+import net.kyori.adventure.text.Component;
+import dev.mulcor.core.region.Stacks;
+import java.util.List;
+import java.util.Map;
 import net.minestom.server.network.packet.server.play.data.ChunkData;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -210,6 +226,32 @@ class PlayWriterTest {
             assertSame(threshold, new ChunkBatchStartPacket(), ours(w, PlayWriter::batchStart));
             assertSame(threshold, new ChunkBatchFinishedPacket(17), ours(w, (p, o) -> p.batchFinished(17, o)));
             assertSame(threshold, new AcknowledgeBlockChangePacket(99), ours(w, (p, o) -> p.acknowledgeBlockChange(99, o)));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 256})
+    void inventoryPacketsMatchMinestom(int threshold) throws Exception {
+        long stone = Stacks.of(Material.STONE.id(), 5);
+        long pick = Stacks.of(Material.IRON_PICKAXE.id(), 1, 17);
+        ItemStack mStone = ItemStack.of(Material.STONE, 5);
+        ItemStack mPick = ItemStack.of(Material.IRON_PICKAXE).with(DataComponents.DAMAGE, 17);
+        try (var w = new PlayWriter(threshold)) {
+            assertSame(threshold, new SetSlotPacket(0, 1, (short) 36, mStone), ours(w, (p, o) -> p.setSlot(0, 1, 36, stone, o)));
+            assertSame(threshold, new SetSlotPacket(2, 7, (short) 3, mPick), ours(w, (p, o) -> p.setSlot(2, 7, 3, pick, o)));
+            assertSame(threshold, new SetSlotPacket(0, 1, (short) 5, ItemStack.AIR), ours(w, (p, o) -> p.setSlot(0, 1, 5, Stacks.EMPTY, o)));
+            long[] stacks = {Stacks.EMPTY, stone, pick, Stacks.EMPTY};
+            assertSame(threshold, new WindowItemsPacket(0, 4, List.of(ItemStack.AIR, mStone, mPick), mPick),
+                    ours(w, (p, o) -> p.windowItems(0, 4, stacks, 0, 3, pick, o)));
+            assertSame(threshold, new SetCursorItemPacket(mStone), ours(w, (p, o) -> p.setCursor(stone, o)));
+            assertSame(threshold, new SetCursorItemPacket(ItemStack.AIR), ours(w, (p, o) -> p.setCursor(Stacks.EMPTY, o)));
+            Component title = Component.translatable("container.crafting");
+            byte[] titleBytes = Vanilla.component(title);
+            assertSame(threshold, new OpenWindowPacket(1, 12, title), ours(w, (p, o) -> p.openWindow(1, 12, titleBytes, o)));
+            assertSame(threshold, new CloseWindowPacket(1), ours(w, (p, o) -> p.closeWindow(1, o)));
+            assertSame(threshold, new CollectItemPacket(40, 7, 3), ours(w, (p, o) -> p.collect(40, 7, 3, o)));
+            assertSame(threshold, new UpdateHealthPacket(13.5f, 17, 2.5f), ours(w, (p, o) -> p.updateHealth(13.5f, 17, 2.5f, o)));
+            assertSame(threshold, new EntityMetaDataPacket(40, Map.of(8, Metadata.ItemStack(mPick))), ours(w, (p, o) -> p.itemMeta(40, pick, o)));
         }
     }
 

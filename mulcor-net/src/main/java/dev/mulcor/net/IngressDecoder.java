@@ -120,6 +120,9 @@ public final class IngressDecoder {
             long pos = in.readLong();
             in.readByte(); // face
             lastSequence = Math.max(lastSequence, VarInts.read(in));
+            // ServerboundPlayerActionPacket.Action: 3 DROP_ITEM, 4 DROP_ALL_ITEMS, 6 SWAP_ITEM_WITH_OFFHAND
+            if (status == 3 || status == 4) return emit(Input.DROP, 0, 0, 0, status == 4 ? 1 : 0, 0, 0);
+            if (status == 6) return emit(Input.SWAP_HANDS, 0, 0, 0, 0, 0, 0);
             if (status != 0 && status != 2) { cold++; return true; } // only start/finish digging break blocks
             return emit(Input.DIG, VarInts.blockX(pos), VarInts.blockY(pos), VarInts.blockZ(pos), status + 1, 0, 0);
         }
@@ -146,11 +149,12 @@ public final class IngressDecoder {
             return emit(Input.HELD_SLOT, 0, 0, 0, in.readShort(), 0, 0);
         }
         if (id == Protocol.CREATIVE_SLOT) {
-            // slot, then the item stack: count, item id, component patch (not needed: the rest of the frame is skipped)
+            // slot, then the item stack: count, item id, component patch; of the patch only minecraft:damage is kept
             short slot = in.readShort();
             int count = VarInts.read(in);
             int item = count > 0 ? VarInts.read(in) : 0;
-            return emit(Input.CREATIVE_SLOT, 0, 0, 0, slot, item, count);
+            int damage = count > 0 ? damage(in) : 0;
+            return emit(Input.CREATIVE_SLOT, 0, 0, 0, slot, item, count | damage << 16);
         }
         if (id == Protocol.TELEPORT_CONFIRM) {
             if (VarInts.read(in) == awaitTeleport) awaitTeleport = -1;
@@ -207,19 +211,37 @@ public final class IngressDecoder {
             return mailbox.offer(id, in);
         }
         if (id == Protocol.CLICK_WINDOW) {
-            int window = VarInts.read(in);
+            // container id, state id, slot, button, click type; the client's predicted slot changes and carried item
+            // are not needed: the region applies the click itself and the session resyncs any difference
+            int container = VarInts.read(in);
             VarInts.read(in); // state id
             short slot = in.readShort();
             byte button = in.readByte();
             int mode = VarInts.read(in);
-            // Window ids map to chests: window n shows chest n - 1. PICKUP left = take a stack, right = half;
-            // QUICK_MOVE (shift-click) = move a stack from the player into the chest.
-            int count = mode == 0 ? (button == 0 ? 64 : 32) : mode == 1 ? -64 : 0;
-            if (count == 0 || window <= 0 || slot < 0) { cold++; return true; }
-            return emit(Input.CHEST, 0, 0, 0, window - 1, slot, count);
+            return emit(Input.CLICK, container, 0, 0, slot, button, mode);
+        }
+        if (id == Protocol.CLOSE_WINDOW) {
+            return emit(Input.CLOSE_WINDOW, VarInts.read(in), 0, 0, 0, 0, 0);
         }
         cold++;
         return true;
+    }
+
+    /**
+     * The {@code minecraft:damage} value (component 3) of an item's component patch, or 0. Added components come first,
+     * as (type id, value); max_stack_size (1) and max_damage (2) are single VarInts, so they are skipped; any other
+     * component before damage has a value of unknown length here and ends the scan.
+     */
+    private static int damage(ByteBuf in) {
+        int added = VarInts.read(in);
+        VarInts.read(in); // removed count
+        for (int i = 0; i < added; i++) {
+            int type = VarInts.read(in);
+            if (type == 3) return Math.clamp(VarInts.read(in), 0, 0xFFFF);
+            if (type != 1 && type != 2) return 0;
+            VarInts.read(in);
+        }
+        return 0;
     }
 
     /** A click coordinate inside a block (0-1) in thousandths, 10 bits. */

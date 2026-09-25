@@ -38,4 +38,11 @@ public final class Vanilla {
     }
 
     private Vanilla() {}
+
+    /** A text component's network encoding (cold: build once, write with {@code writeBytes}). */
+    public static byte[] component(net.kyori.adventure.text.Component text) {
+        var nb = net.minestom.server.network.NetworkBuffer.resizableBuffer(REGISTRIES);
+        nb.write(net.minestom.server.network.NetworkBuffer.COMPONENT, text);
+        return nb.read(net.minestom.server.network.NetworkBuffer.RAW_BYTES);
+    }
 }

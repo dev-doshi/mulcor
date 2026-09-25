@@ -92,7 +92,7 @@ final class Packets {
     /** A cold packet: some other play id with an arbitrary body. */
     static byte[] cold() {
         int id = 0;
-        while (id == Protocol.DIG || id == Protocol.PLACE || id == Protocol.POSITION || id == Protocol.CLICK_WINDOW
+        while (id == Protocol.DIG || id == Protocol.PLACE || id == Protocol.POSITION || id == Protocol.CLICK_WINDOW || id == Protocol.CLOSE_WINDOW
                 || id == Protocol.POSITION_ROTATION || id == Protocol.ROTATION || id == Protocol.GROUND) id++;
         return new byte[] {3, (byte) id, 42, 43};
     }

@@ -1,5 +1,6 @@
 package dev.mulcor.net;
 
+import dev.mulcor.core.region.Stacks;
 import dev.mulcor.memory.BlockStorage;
 import dev.mulcor.memory.LightStorage;
 import io.netty.buffer.ByteBuf;
@@ -338,6 +339,121 @@ public final class PlayWriter implements AutoCloseable {
         VarInts.writeLong(body, dayTime);
         body.writeFloat(0f);
         body.writeFloat(1f);
+        frame(out);
+    }
+
+    /** Data component type id of {@code minecraft:damage} (vanilla {@code DataComponents} registry order). */
+    private static final int COMPONENT_DAMAGE = 3;
+    /** Metadata serializer id of an item stack. */
+    private static final int SER_ITEM = 7;
+    /** Entity data index of an item entity's stack ({@code ItemEntity.DATA_ITEM}). */
+    private static final int META_ITEM = 8;
+
+    /**
+     * {@code ItemStack.OPTIONAL_STREAM_CODEC} for a packed {@code dev.mulcor.core.region.Stacks} stack: count (0 for
+     * empty), then item id and the component patch (damage only, when non-zero).
+     */
+    private static void item(long stack, ByteBuf buf) {
+        int count = Stacks.count(stack);
+        if (stack == Stacks.EMPTY || count == 0) {
+            VarInts.write(buf, 0);
+            return;
+        }
+        VarInts.write(buf, count);
+        VarInts.write(buf, Stacks.item(stack));
+        int damage = Stacks.damage(stack);
+        if (damage > 0) {
+            VarInts.write(buf, 1); // components added
+            VarInts.write(buf, 0); // components removed
+            VarInts.write(buf, COMPONENT_DAMAGE);
+            VarInts.write(buf, damage);
+        } else {
+            VarInts.write(buf, 0);
+            VarInts.write(buf, 0);
+        }
+    }
+
+    /** {@code ClientboundContainerSetSlotPacket}: container id, state id, slot, stack. */
+    public void setSlot(int container, int stateId, int slot, long stack, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_SET_SLOT);
+        VarInts.write(body, container);
+        VarInts.write(body, stateId);
+        body.writeShort(slot);
+        item(stack, body);
+        frame(out);
+    }
+
+    /**
+     * {@code ClientboundContainerSetContentPacket}: container id, state id, {@code n} stacks of {@code stacks} from
+     * {@code off} (menu slot order), then the carried stack.
+     */
+    public void windowItems(int container, int stateId, long[] stacks, int off, int n, long carried, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_WINDOW_ITEMS);
+        VarInts.write(body, container);
+        VarInts.write(body, stateId);
+        VarInts.write(body, n);
+        for (int i = 0; i < n; i++) item(stacks[off + i], body);
+        item(carried, body);
+        frame(out);
+    }
+
+    /** {@code ClientboundSetCursorItemPacket}: the stack carried by the mouse. */
+    public void setCursor(long stack, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_SET_CURSOR);
+        item(stack, body);
+        frame(out);
+    }
+
+    /** {@code ClientboundOpenScreenPacket}: container id, menu type, and a pre-encoded title component. */
+    public void openWindow(int container, int menuType, byte[] title, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_OPEN_WINDOW);
+        VarInts.write(body, container);
+        VarInts.write(body, menuType);
+        body.writeBytes(title);
+        frame(out);
+    }
+
+    /** {@code ClientboundContainerClosePacket}. */
+    public void closeWindow(int container, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_CLOSE_WINDOW);
+        VarInts.write(body, container);
+        frame(out);
+    }
+
+    /** {@code ClientboundTakeItemEntityPacket}: the picked-up entity, the collector and the count taken. */
+    public void collect(int item, int collector, int count, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_COLLECT);
+        VarInts.write(body, item);
+        VarInts.write(body, collector);
+        VarInts.write(body, count);
+        frame(out);
+    }
+
+    /** {@code ClientboundSetHealthPacket}: health, food level, saturation. */
+    public void updateHealth(float health, int food, float saturation, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_HEALTH);
+        body.writeFloat(health);
+        VarInts.write(body, food);
+        body.writeFloat(saturation);
+        frame(out);
+    }
+
+    /** {@code ClientboundSetEntityDataPacket} for an item entity: its stack. */
+    public void itemMeta(int id, long stack, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_METADATA);
+        VarInts.write(body, id);
+        body.writeByte(META_ITEM);
+        VarInts.write(body, SER_ITEM);
+        item(stack, body);
+        body.writeByte(0xFF);
         frame(out);
     }
 

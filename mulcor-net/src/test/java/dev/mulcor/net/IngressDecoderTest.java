@@ -34,9 +34,9 @@ class IngressDecoderTest {
                     new Rec(Input.DIG, 77, 10, 5, -20, 1, 0, 0),
                     new Rec(Input.PLACE, 77, 4, 64, 4, Input.HELD_ITEM, 6, 500 | 500 << 10 | 500 << 20), // B = EAST + 1; centre click
                     new Rec(Input.POSITION, 77, 12250, 70500, -3125, Input.ON_GROUND, 0, 0),
-                    new Rec(Input.CHEST, 77, 0, 0, 0, 4, 7, 64),
-                    new Rec(Input.CHEST, 77, 0, 0, 0, 4, 8, 32),
-                    new Rec(Input.CHEST, 77, 0, 0, 0, 1, 0, -64)), sink.records);
+                    new Rec(Input.CLICK, 77, 5, 0, 0, 7, 0, 0),
+                    new Rec(Input.CLICK, 77, 5, 0, 0, 8, 1, 0),
+                    new Rec(Input.CLICK, 77, 2, 0, 0, 0, 0, 1)), sink.records);
             assertEquals(6, dec.hotPackets());
             assertEquals(2, dec.coldPackets());
             assertEquals(8, dec.frames());
