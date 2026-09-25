@@ -108,7 +108,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
     private final int[] trackKey = new int[TRACK], trackRound = new int[TRACK];
     private final double[] trackX = new double[TRACK], trackY = new double[TRACK], trackZ = new double[TRACK];
     private final float[] trackYaw = new float[TRACK], trackPitch = new float[TRACK];
-    /** What a tracked player last showed: packed presence, swing counters, main-hand item. */
+    /** Players: presence, swing counters, held item. Items: META = the stack's item | count << 16, HELD = damage. */
     private final int[] trackMeta = new int[TRACK], trackSwing = new int[TRACK], trackHeld = new int[TRACK];
     /** This player's own skin parts and main hand as last sent to itself (the client starts from the defaults). */
     private int selfMeta = DEFAULT_PRESENCE;
@@ -389,6 +389,12 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
                 pos++;
                 long p = rec.get(ValueLayout.JAVA_LONG, Journal.POS);
                 long meta = rec.get(ValueLayout.JAVA_LONG, Journal.META);
+                if (Journal.kind(meta) == Journal.COLLECT) {
+                    // ItemEntity.playerTouch → take: seen by those tracking the item (it is untracked just after)
+                    int item = (int) p;
+                    if (find(item) >= 0) w.collect(item, (int) (p >>> 32), (int) meta & 0xFF, out);
+                    continue;
+                }
                 int x = ScheduledTicks.x(p), y = ScheduledTicks.y(p), z = ScheduledTicks.z(p);
                 if (!holds(x >> 4, z >> 4)) continue;
                 if (Journal.kind(meta) == Journal.BLOCK_EVENT) {
@@ -673,6 +679,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         return switch (type) {
             case Entities.PLAYER -> 32 * 16;
             case Entities.TNT, Entities.FALLING_BLOCK -> 10 * 16;
+            case Entities.ITEM -> 6 * 16;
             default -> 8 * 16; // zombies
         };
     }
@@ -682,6 +689,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
             case Entities.PLAYER -> EntityTypeId.PLAYER;
             case Entities.TNT -> EntityTypeId.TNT;
             case Entities.FALLING_BLOCK -> EntityTypeId.FALLING_BLOCK;
+            case Entities.ITEM -> EntityTypeId.ITEM;
             default -> EntityTypeId.ZOMBIE;
         };
     }
@@ -797,6 +805,12 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
                 trackMeta[slot] = meta;
                 trackHeld[slot] = held;
                 trackSwing[slot] = s.get(ValueLayout.JAVA_INT, o + NetEntities.SWING);
+            } else if (type == Entities.ITEM) {
+                // an item's stack rides in its entity data: DATA = item | count << 16, META = damage
+                int stack = s.get(ValueLayout.JAVA_INT, o + NetEntities.DATA), damage = s.get(ValueLayout.JAVA_INT, o + NetEntities.META);
+                w.itemMeta(id, itemStack(stack, damage), out);
+                trackMeta[slot] = stack;
+                trackHeld[slot] = damage;
             }
         } else {
             if (trackX[slot] != x || trackY[slot] != y || trackZ[slot] != z || trackYaw[slot] != yaw
@@ -805,7 +819,14 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
                 w.entitySync(id, x, y, z, vx, vy, vz, yaw, pitch, onGround, out);
                 if (PlayWriter.angle(trackYaw[slot]) != PlayWriter.angle(yaw)) w.headLook(id, yaw, out);
             }
-            if (type == Entities.PLAYER) changes(slot, id, o, w, out);
+            if (type == Entities.PLAYER) {
+                changes(slot, id, o, w, out);
+            } else if (type == Entities.ITEM) { // merged or partly picked up
+                int stack = s.get(ValueLayout.JAVA_INT, o + NetEntities.DATA), damage = s.get(ValueLayout.JAVA_INT, o + NetEntities.META);
+                if (stack != trackMeta[slot] || damage != trackHeld[slot]) w.itemMeta(id, itemStack(stack, damage), out);
+                trackMeta[slot] = stack;
+                trackHeld[slot] = damage;
+            }
         }
         trackRound[slot] = round;
         trackX[slot] = x;
@@ -813,6 +834,11 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         trackZ[slot] = z;
         trackYaw[slot] = yaw;
         trackPitch[slot] = pitch;
+    }
+
+    /** The {@code Stacks} word of an item entity's snapshot DATA and META. */
+    private static long itemStack(int data, int damage) {
+        return (data & 0xFFFFFFL) | (long) (damage & 0xFFFF) << 24;
     }
 
     /** A freshly joined player's presence: vanilla's default entity data (right-handed, nothing shown). */
