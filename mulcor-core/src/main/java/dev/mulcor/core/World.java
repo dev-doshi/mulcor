@@ -42,6 +42,13 @@ public final class World implements AutoCloseable {
      * read only by the region that owns the player (hand-offs happen at the epoch barrier).
      */
     public final int[] hotbar, heldSlot;
+    /**
+     * Network players' visible state ({@link dev.mulcor.core.region.Presence}) and arm-swing counters, per entity id.
+     * Written only by the owning region.
+     */
+    public final int[] presence, swings;
+    /** Day time minus game time (the epoch): {@code /time set} moves it. Cold: written by commands. */
+    public volatile long dayTimeOffset;
     public final Partition partition;
     /**
      * Egress journals, one per region slot ({@link Journal} records): what changed in each tick, for player sessions.
@@ -72,6 +79,8 @@ public final class World implements AutoCloseable {
         this.players = new OffHeapInventory(memory, cfg.maxEntities(), PLAYER_SLOTS);
         this.hotbar = new int[cfg.maxEntities() * 9];
         this.heldSlot = new int[cfg.maxEntities()];
+        this.presence = new int[cfg.maxEntities()];
+        this.swings = new int[cfg.maxEntities()];
         int numChests = cellsX * cellsZ * cfg.chestsPerCell();
         this.chests = new OffHeapInventory(memory, numChests, CHEST_SLOTS);
         this.chestX = new int[numChests];

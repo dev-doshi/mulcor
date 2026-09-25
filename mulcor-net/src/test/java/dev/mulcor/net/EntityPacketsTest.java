@@ -88,4 +88,75 @@ class EntityPacketsTest {
             assertArrayEquals(minestom(Protocol.OUT_REMOVE_ENTITIES, DestroyEntitiesPacket.SERIALIZER, packet), body(out));
         }
     }
+
+    /** Each entry alone (Minestom's packet copies its map, losing order; vanilla writes ascending ids like Mulcor). */
+    @Test
+    void playerMetadataMatchesMinestom() {
+        // crouching + sprinting, pose CROUCHING, left-handed, skin 0x7F
+        int presence = 0x0A | 0x7F << 8 | 5 << 17;
+        int[] masks = {PlayWriter.META_FLAGS, PlayWriter.META_POSE, PlayWriter.META_HAND, PlayWriter.META_SKIN};
+        int[] ids = {0, 6, 15, 16};
+        net.minestom.server.entity.Metadata.Entry<?>[] entries = {
+                net.minestom.server.entity.Metadata.Byte((byte) 0x0A),
+                net.minestom.server.entity.Metadata.Pose(net.minestom.server.entity.EntityPose.SNEAKING),
+                net.minestom.server.entity.Metadata.MainHand(net.minestom.server.entity.MainHand.LEFT),
+                net.minestom.server.entity.Metadata.Byte((byte) 0x7F)};
+        try (var w = new PlayWriter(0)) {
+            for (int i = 0; i < 4; i++) {
+                ByteBuf out = Unpooled.buffer();
+                w.playerMeta(42, presence, masks[i], out);
+                var packet = new net.minestom.server.network.packet.server.play.EntityMetaDataPacket(42,
+                        java.util.Map.of(ids[i], entries[i]));
+                assertArrayEquals(minestom(Protocol.OUT_METADATA,
+                        net.minestom.server.network.packet.server.play.EntityMetaDataPacket.SERIALIZER, packet), body(out), "index " + ids[i]);
+            }
+        }
+    }
+
+    @Test
+    void mainHandEquipmentMatchesMinestom() {
+        try (var w = new PlayWriter(0)) {
+            for (var m : new net.minestom.server.item.Material[] {net.minestom.server.item.Material.AIR,
+                    net.minestom.server.item.Material.STONE, net.minestom.server.item.Material.DIAMOND_SWORD}) {
+                ByteBuf out = Unpooled.buffer();
+                w.mainHand(5, m == net.minestom.server.item.Material.AIR ? 0 : m.id(), out);
+                var packet = new net.minestom.server.network.packet.server.play.EntityEquipmentPacket(5,
+                        java.util.Map.of(net.minestom.server.entity.EquipmentSlot.MAIN_HAND, net.minestom.server.item.ItemStack.of(m)));
+                assertArrayEquals(minestom(Protocol.OUT_EQUIPMENT,
+                        net.minestom.server.network.packet.server.play.EntityEquipmentPacket.SERIALIZER, packet), body(out), m.name());
+            }
+        }
+    }
+
+    @Test
+    void animationAndHeadLookMatchMinestom() {
+        try (var w = new PlayWriter(0)) {
+            ByteBuf out = Unpooled.buffer();
+            w.animation(7, 3, out);
+            var anim = new net.minestom.server.network.packet.server.play.EntityAnimationPacket(7,
+                    net.minestom.server.network.packet.server.play.EntityAnimationPacket.Animation.SWING_OFF_HAND);
+            assertArrayEquals(minestom(Protocol.OUT_ANIMATION,
+                    net.minestom.server.network.packet.server.play.EntityAnimationPacket.SERIALIZER, anim), body(out));
+            out = Unpooled.buffer();
+            w.headLook(7, -90f, out);
+            var head = new net.minestom.server.network.packet.server.play.EntityHeadLookPacket(7, -90f);
+            assertArrayEquals(minestom(Protocol.OUT_HEAD_LOOK,
+                    net.minestom.server.network.packet.server.play.EntityHeadLookPacket.SERIALIZER, head), body(out));
+        }
+    }
+
+    @Test
+    void setTimeMatchesMinestom() {
+        try (var w = new PlayWriter(0)) {
+            ByteBuf out = Unpooled.buffer();
+            w.setTime(123_456L, Vanilla.OVERWORLD_CLOCK, 30_000L, out);
+            var packet = new net.minestom.server.network.packet.server.play.SetTimePacket(123_456L,
+                    java.util.Map.of(net.minestom.server.world.clock.WorldClock.OVERWORLD,
+                            new net.minestom.server.network.packet.server.play.SetTimePacket.ClockState(30_000L, 0f, 1f)));
+            NetworkBuffer nb = NetworkBuffer.resizableBuffer(Vanilla.REGISTRIES);
+            nb.write(NetworkBuffer.VAR_INT, Protocol.OUT_SET_TIME);
+            nb.write(net.minestom.server.network.packet.server.play.SetTimePacket.SERIALIZER, packet);
+            assertArrayEquals(nb.read(NetworkBuffer.RAW_BYTES), body(out));
+        }
+    }
 }

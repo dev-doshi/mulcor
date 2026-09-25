@@ -54,6 +54,16 @@ public final class Input {
     public static final int CREATIVE_SLOT = 12;
     /** Selected hotbar slot: A = 0-8. */
     public static final int HELD_SLOT = 13;
+    /** Arm swing ({@code ServerboundSwingPacket}): A = hand (0 main, 1 off). */
+    public static final int SWING = 14;
+    /** Movement keys ({@code ServerboundPlayerInputPacket}): A = flags (forward 1, backward 2, left 4, right 8, jump 16, shift 32, sprint 64). */
+    public static final int PLAYER_INPUT = 15;
+    /** {@code ServerboundPlayerCommandPacket}: A = action ordinal (1 start sprinting, 2 stop sprinting, ...). */
+    public static final int PLAYER_COMMAND = 16;
+    /** Client settings: A = displayed skin parts, B = main hand (0 left, 1 right). */
+    public static final int SETTINGS = 17;
+    /** {@code ServerboundPlayerAbilitiesPacket}: A = flags (2 = flying). */
+    public static final int ABILITIES = 18;
 
     /** POSITION flag: the record carries only rotation/ground state; X,Y,Z are ignored. */
     public static final int NO_POSITION = 1;

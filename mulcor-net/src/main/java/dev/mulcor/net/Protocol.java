@@ -2,7 +2,15 @@ package dev.mulcor.net;
 
 import net.minestom.server.instance.palette.Palette;
 import net.minestom.server.network.packet.PacketVanilla;
+import net.minestom.server.network.packet.client.common.ClientSettingsPacket;
+import net.minestom.server.network.packet.client.play.ClientAnimationPacket;
+import net.minestom.server.network.packet.client.play.ClientChatMessagePacket;
 import net.minestom.server.network.packet.client.play.ClientClickWindowPacket;
+import net.minestom.server.network.packet.client.play.ClientCommandChatPacket;
+import net.minestom.server.network.packet.client.play.ClientEntityActionPacket;
+import net.minestom.server.network.packet.client.play.ClientInputPacket;
+import net.minestom.server.network.packet.client.play.ClientPlayerAbilitiesPacket;
+import net.minestom.server.network.packet.client.play.ClientSignedCommandChatPacket;
 import net.minestom.server.network.packet.client.play.ClientCreativeInventoryActionPacket;
 import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket;
 import net.minestom.server.network.packet.client.play.ClientPlayerActionPacket;
@@ -17,6 +25,11 @@ import net.minestom.server.network.packet.server.play.BlockActionPacket;
 import net.minestom.server.network.packet.server.play.BlockChangePacket;
 import net.minestom.server.network.packet.server.play.ChunkBatchFinishedPacket;
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket;
+import net.minestom.server.network.packet.server.play.EntityAnimationPacket;
+import net.minestom.server.network.packet.server.play.EntityEquipmentPacket;
+import net.minestom.server.network.packet.server.play.EntityHeadLookPacket;
+import net.minestom.server.network.packet.server.play.EntityMetaDataPacket;
+import net.minestom.server.network.packet.server.play.SetTimePacket;
 import net.minestom.server.network.packet.server.play.EntityPositionSyncPacket;
 import net.minestom.server.network.packet.server.play.PlayerInfoRemovePacket;
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket;
@@ -40,6 +53,15 @@ public final class Protocol {
     public static final int GROUND = id(ClientPlayerPositionStatusPacket.class);
     public static final int CREATIVE_SLOT = id(ClientCreativeInventoryActionPacket.class);
     public static final int HELD_ITEM = id(ClientHeldItemChangePacket.class);
+    public static final int SWING = id(ClientAnimationPacket.class);
+    public static final int PLAYER_INPUT = id(ClientInputPacket.class);
+    public static final int PLAYER_COMMAND = id(ClientEntityActionPacket.class);
+    public static final int SETTINGS = id(ClientSettingsPacket.class);
+    public static final int ABILITIES = id(ClientPlayerAbilitiesPacket.class);
+    // Cold play packets the decoder hands to the session's mailbox (see ColdMailbox).
+    public static final int CHAT = id(ClientChatMessagePacket.class);
+    public static final int COMMAND = id(ClientCommandChatPacket.class);
+    public static final int SIGNED_COMMAND = id(ClientSignedCommandChatPacket.class);
 
     // Server → client play packets written without Minestom objects (see PlayWriter).
     public static final int OUT_CHUNK_DATA = serverId(ChunkDataPacket.class);
@@ -55,6 +77,11 @@ public final class Protocol {
     public static final int OUT_REMOVE_ENTITIES = serverId(DestroyEntitiesPacket.class);
     public static final int OUT_PLAYER_INFO_UPDATE = serverId(PlayerInfoUpdatePacket.class);
     public static final int OUT_PLAYER_INFO_REMOVE = serverId(PlayerInfoRemovePacket.class);
+    public static final int OUT_METADATA = serverId(EntityMetaDataPacket.class);
+    public static final int OUT_EQUIPMENT = serverId(EntityEquipmentPacket.class);
+    public static final int OUT_ANIMATION = serverId(EntityAnimationPacket.class);
+    public static final int OUT_HEAD_LOOK = serverId(EntityHeadLookPacket.class);
+    public static final int OUT_SET_TIME = serverId(SetTimePacket.class);
 
     public static final int PALETTE_MIN_BITS = Palette.BLOCK_PALETTE_MIN_BITS;
     public static final int PALETTE_MAX_BITS = Palette.BLOCK_PALETTE_MAX_BITS;

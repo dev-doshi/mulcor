@@ -252,6 +252,95 @@ public final class PlayWriter implements AutoCloseable {
         frame(out);
     }
 
+    /** Metadata entry masks for {@link #playerMeta}. */
+    public static final int META_FLAGS = 1, META_POSE = 2, META_HAND = 4, META_SKIN = 8;
+    /** Metadata serializer ids (vanilla {@code EntityDataSerializers}). */
+    private static final int SER_BYTE = 0, SER_POSE = 20, SER_MAIN_HAND = 42;
+
+    /**
+     * {@code ClientboundSetEntityDataPacket} for a player: the entries of {@code mask} in ascending index order (as
+     * vanilla packs them): 0 shared flags (byte), 6 pose, 15 main hand, 16 displayed skin parts (byte); then 0xFF.
+     * {@code presence} is the packed {@code dev.mulcor.core.region.Presence}.
+     */
+    public void playerMeta(int id, int presence, int mask, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_METADATA);
+        VarInts.write(body, id);
+        if ((mask & META_FLAGS) != 0) {
+            body.writeByte(0);
+            VarInts.write(body, SER_BYTE);
+            body.writeByte(presence & 0xFF);
+        }
+        if ((mask & META_POSE) != 0) {
+            body.writeByte(6);
+            VarInts.write(body, SER_POSE);
+            VarInts.write(body, (presence >>> 17) & 31);
+        }
+        if ((mask & META_HAND) != 0) {
+            body.writeByte(15);
+            VarInts.write(body, SER_MAIN_HAND);
+            VarInts.write(body, (presence >>> 16) & 1);
+        }
+        if ((mask & META_SKIN) != 0) {
+            body.writeByte(16);
+            VarInts.write(body, SER_BYTE);
+            body.writeByte((presence >>> 8) & 0xFF);
+        }
+        body.writeByte(0xFF);
+        frame(out);
+    }
+
+    /** {@code ClientboundSetEquipmentPacket} with the main hand only: one of {@code item} (0 = empty), no components. */
+    public void mainHand(int id, int item, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_EQUIPMENT);
+        VarInts.write(body, id);
+        body.writeByte(0); // EquipmentSlot.MAINHAND, last entry
+        if (item == 0) {
+            VarInts.write(body, 0);
+        } else {
+            VarInts.write(body, 1);
+            VarInts.write(body, item);
+            VarInts.write(body, 0); // components added
+            VarInts.write(body, 0); // components removed
+        }
+        frame(out);
+    }
+
+    /** {@code ClientboundAnimatePacket}: 0 swing main arm, 3 swing off hand. */
+    public void animation(int id, int action, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_ANIMATION);
+        VarInts.write(body, id);
+        body.writeByte(action);
+        frame(out);
+    }
+
+    /** {@code ClientboundRotateHeadPacket}: head yaw as an angle byte. */
+    public void headLook(int id, float yaw, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_HEAD_LOOK);
+        VarInts.write(body, id);
+        body.writeByte(angle(yaw));
+        frame(out);
+    }
+
+    /**
+     * {@code ClientboundSetTimePacket}: game time, then one clock (the overworld's, registry id {@code clock}) with
+     * its total ticks, partial tick 0 and rate 1 (time advances; the client interpolates).
+     */
+    public void setTime(long gameTime, int clock, long dayTime, ByteBuf out) {
+        body.clear();
+        VarInts.write(body, Protocol.OUT_SET_TIME);
+        body.writeLong(gameTime);
+        VarInts.write(body, 1);
+        VarInts.write(body, clock);
+        VarInts.writeLong(body, dayTime);
+        body.writeFloat(0f);
+        body.writeFloat(1f);
+        frame(out);
+    }
+
     /** Frame an already serialized packet (id + payload), e.g. a cold-path packet written by Minestom. */
     public void raw(byte[] packet, ByteBuf out) {
         body.clear();

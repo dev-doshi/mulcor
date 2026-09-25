@@ -41,6 +41,14 @@ public final class VarInts {
         buf.writeByte(value);
     }
 
+    public static void writeLong(ByteBuf buf, long value) {
+        while ((value & ~0x7FL) != 0) {
+            buf.writeByte((int) (value & 0x7F) | 0x80);
+            value >>>= 7;
+        }
+        buf.writeByte((int) value);
+    }
+
     public static int size(int value) {
         int n = 1;
         while ((value & ~0x7F) != 0) {

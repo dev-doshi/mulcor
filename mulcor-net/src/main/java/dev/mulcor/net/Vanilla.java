@@ -22,6 +22,8 @@ public final class Vanilla {
     /** Overworld floor and section count: every chunk packet must describe exactly this column. */
     public static final int MIN_Y, SECTIONS;
     public static final int PLAINS_BIOME;
+    /** Registry ids of the overworld's clock (Set Time) and the {@code minecraft:chat} chat type. */
+    public static final int OVERWORLD_CLOCK, CHAT_TYPE;
 
     static {
         if (MinecraftServer.process() == null) MinecraftServer.init();
@@ -31,6 +33,8 @@ public final class Vanilla {
         MIN_Y = overworld.minY();
         SECTIONS = overworld.height() / 16;
         PLAINS_BIOME = REGISTRIES.biome().getId(Biome.PLAINS);
+        OVERWORLD_CLOCK = REGISTRIES.worldClock().getId(net.minestom.server.world.clock.WorldClock.OVERWORLD);
+        CHAT_TYPE = REGISTRIES.chatType().getId(net.minestom.server.message.ChatType.CHAT);
     }
 
     private Vanilla() {}

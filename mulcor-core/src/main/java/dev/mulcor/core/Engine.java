@@ -111,6 +111,8 @@ public final class Engine implements AutoCloseable {
     // ---- public API --------------------------------------------------------------------------------------------
 
     public long epoch() { return epoch; }
+    /** The last epoch every region finished (the game time other threads may show). */
+    public long completedEpoch() { return completedEpoch; }
     public int workers() { return cfg.workers(); }
     /** Snapshot of the simulation worker threads created so far. */
     public Thread[] workerThreads() {

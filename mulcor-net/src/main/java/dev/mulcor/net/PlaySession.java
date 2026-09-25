@@ -88,6 +88,14 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
     private final int[] trackKey = new int[TRACK], trackRound = new int[TRACK];
     private final double[] trackX = new double[TRACK], trackY = new double[TRACK], trackZ = new double[TRACK];
     private final float[] trackYaw = new float[TRACK], trackPitch = new float[TRACK];
+    /** What a tracked player last showed: packed presence, swing counters, main-hand item. */
+    private final int[] trackMeta = new int[TRACK], trackSwing = new int[TRACK], trackHeld = new int[TRACK];
+    /** This player's own skin parts and main hand as last sent to itself (the client starts from the defaults). */
+    private int selfMeta = DEFAULT_PRESENCE;
+    /** Updates until the next Set Time (vanilla sends it every 20 ticks). */
+    private int timeCountdown;
+    /** The client's settings from the configuration phase: displayed skin parts and main hand. */
+    private final int skinParts, mainHand;
     private int tracked, round;
     private final int[] removeIds = new int[TRACK];
     private final World world;
@@ -104,6 +112,13 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
 
     PlaySession(ServerContext server, int entity, IngressDecoder decoder, int threshold, double spawnX, double spawnZ,
                 GameProfile profile) {
+        this(server, entity, decoder, threshold, spawnX, spawnZ, profile, 0x7F, 1);
+    }
+
+    PlaySession(ServerContext server, int entity, IngressDecoder decoder, int threshold, double spawnX, double spawnZ,
+                GameProfile profile, int skinParts, int mainHand) {
+        this.skinParts = skinParts;
+        this.mainHand = mainHand;
         this.server = server;
         this.entity = entity;
         this.decoder = decoder;
@@ -151,9 +166,11 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         lastKeepAlive = System.nanoTime();
         ByteBuf out = ctx.alloc().directBuffer(64 * 1024);
         writer().viewCenter(centerX, centerZ, out);
+        sendTime(writer(), out);
         stream(out);
         ctx.writeAndFlush(out);
         joinTabLists();
+        request(Input.SETTINGS, skinParts, mainHand, 0);
         task = ctx.executor().scheduleAtFixedRate(this::update, 50, 50, TimeUnit.MILLISECONDS);
     }
 
@@ -182,6 +199,27 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         leave();
     }
 
+    /** Offer an input for this player's entity to its region; retried shortly while the ingress ring is full. */
+    void request(int kind, int a, int b, int c) {
+        if (closed) return;
+        scratch.fill((byte) 0);
+        scratch.set(ValueLayout.JAVA_INT, Input.KIND, kind);
+        scratch.set(ValueLayout.JAVA_INT, Input.ENTITY, entity);
+        scratch.set(ValueLayout.JAVA_INT, Input.A, a);
+        scratch.set(ValueLayout.JAVA_INT, Input.B, b);
+        scratch.set(ValueLayout.JAVA_INT, Input.C, c);
+        if (!server.engine().submitInput(scratch, 0)) {
+            ctx.executor().schedule(() -> request(kind, a, b, c), 5, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    /** Set Time: the engine's completed epoch as game time, plus the world's day-time offset for the clock. */
+    private void sendTime(PlayWriter w, ByteBuf out) {
+        long gameTime = server.engine().completedEpoch();
+        w.setTime(gameTime, Vanilla.OVERWORLD_CLOCK, gameTime + world.dayTimeOffset, out);
+        timeCountdown = 20;
+    }
+
     private void leave() {
         if (!server.engine().requestLeave(scratch, entity)) {
             ctx.executor().schedule(this::leave, 5, TimeUnit.MILLISECONDS); // ingress ring full: retry
@@ -199,6 +237,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         if (ctx.channel().isWritable()) stream(out);
         forwardChanges(w, out);
         trackEntities(w, out);
+        if (--timeCountdown <= 0) sendTime(w, out);
         int seq = decoder.lastSequence();
         if (seq > lastAcked) {
             w.acknowledgeBlockChange(seq, out);
@@ -424,7 +463,10 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
     private void track(long o, double px, double pz, PlayWriter w, ByteBuf out) {
         MemorySegment s = snapCopy;
         int id = s.get(ValueLayout.JAVA_INT, o + NetEntities.ID);
-        if (id == entity) return;
+        if (id == entity) {
+            self(s.get(ValueLayout.JAVA_INT, o + NetEntities.META), w, out);
+            return;
+        }
         int type = s.get(ValueLayout.JAVA_INT, o + NetEntities.TYPE);
         double x = s.get(ValueLayout.JAVA_DOUBLE, o + NetEntities.X), y = s.get(ValueLayout.JAVA_DOUBLE, o + NetEntities.Y);
         double z = s.get(ValueLayout.JAVA_DOUBLE, o + NetEntities.Z);
@@ -450,10 +492,25 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
             if (slot < 0) return; // tracking table full
             int data = type == Entities.FALLING_BLOCK ? s.get(ValueLayout.JAVA_INT, o + NetEntities.DATA) : 0;
             w.addEntity(id, most, least, protocolType(type), x, y, z, vx, vy, vz, yaw, pitch, data, out);
-        } else if (trackX[slot] != x || trackY[slot] != y || trackZ[slot] != z || trackYaw[slot] != yaw
-                || trackPitch[slot] != pitch) {
-            boolean onGround = (s.get(ValueLayout.JAVA_INT, o + NetEntities.FLAGS) & Entities.FLAG_ON_GROUND) != 0;
-            w.entitySync(id, x, y, z, vx, vy, vz, yaw, pitch, onGround, out);
+            if (type == Entities.PLAYER) {
+                // Pairing data (ServerEntity.sendPairingData): the non-default entity data, then the equipment.
+                int meta = s.get(ValueLayout.JAVA_INT, o + NetEntities.META);
+                int held = s.get(ValueLayout.JAVA_INT, o + NetEntities.HELD);
+                int mask = metaDiff(meta, DEFAULT_PRESENCE);
+                if (mask != 0) w.playerMeta(id, meta, mask, out);
+                if (held != 0) w.mainHand(id, held, out);
+                trackMeta[slot] = meta;
+                trackHeld[slot] = held;
+                trackSwing[slot] = s.get(ValueLayout.JAVA_INT, o + NetEntities.SWING);
+            }
+        } else {
+            if (trackX[slot] != x || trackY[slot] != y || trackZ[slot] != z || trackYaw[slot] != yaw
+                    || trackPitch[slot] != pitch) {
+                boolean onGround = (s.get(ValueLayout.JAVA_INT, o + NetEntities.FLAGS) & Entities.FLAG_ON_GROUND) != 0;
+                w.entitySync(id, x, y, z, vx, vy, vz, yaw, pitch, onGround, out);
+                if (PlayWriter.angle(trackYaw[slot]) != PlayWriter.angle(yaw)) w.headLook(id, yaw, out);
+            }
+            if (type == Entities.PLAYER) changes(slot, id, o, w, out);
         }
         trackRound[slot] = round;
         trackX[slot] = x;
@@ -461,6 +518,46 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         trackZ[slot] = z;
         trackYaw[slot] = yaw;
         trackPitch[slot] = pitch;
+    }
+
+    /** A freshly joined player's presence: vanilla's default entity data (right-handed, nothing shown). */
+    private static final int DEFAULT_PRESENCE = 1 << 16;
+
+    /** {@link PlayWriter#playerMeta} mask of the entries that differ between two packed presences. */
+    private static int metaDiff(int a, int b) {
+        int d = a ^ b, mask = 0;
+        if ((d & 0xFF) != 0) mask |= PlayWriter.META_FLAGS;
+        if ((d & (31 << 17)) != 0) mask |= PlayWriter.META_POSE;
+        if ((d & (1 << 16)) != 0) mask |= PlayWriter.META_HAND;
+        if ((d & (0xFF << 8)) != 0) mask |= PlayWriter.META_SKIN;
+        return mask;
+    }
+
+    /** A tracked player's entity data, swings and held item: send what changed since the client last saw it. */
+    private void changes(int slot, int id, long o, PlayWriter w, ByteBuf out) {
+        MemorySegment s = snapCopy;
+        int meta = s.get(ValueLayout.JAVA_INT, o + NetEntities.META);
+        int mask = metaDiff(meta, trackMeta[slot]);
+        if (mask != 0) w.playerMeta(id, meta, mask, out);
+        trackMeta[slot] = meta;
+        int swing = s.get(ValueLayout.JAVA_INT, o + NetEntities.SWING), was = trackSwing[slot];
+        if ((swing & 0xFFFF) != (was & 0xFFFF)) w.animation(id, 0, out); // SWING_MAIN_HAND
+        if ((swing >>> 16) != (was >>> 16)) w.animation(id, 3, out); // SWING_OFF_HAND
+        trackSwing[slot] = swing;
+        int held = s.get(ValueLayout.JAVA_INT, o + NetEntities.HELD);
+        if (held != trackHeld[slot]) w.mainHand(id, held, out);
+        trackHeld[slot] = held;
+    }
+
+    /**
+     * The player's own entity data: vanilla sends it its skin parts and main hand too (other entries are the
+     * client's own prediction).
+     */
+    private void self(int meta, PlayWriter w, ByteBuf out) {
+        int mine = meta & (0xFF << 8 | 1 << 16);
+        int mask = metaDiff(mine, selfMeta) & (PlayWriter.META_SKIN | PlayWriter.META_HAND);
+        if (mask != 0) w.playerMeta(entity, meta, mask, out);
+        selfMeta = mine;
     }
 
     private static int home(int id) {
@@ -502,6 +599,9 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
             trackZ[hole] = trackZ[j];
             trackYaw[hole] = trackYaw[j];
             trackPitch[hole] = trackPitch[j];
+            trackMeta[hole] = trackMeta[j];
+            trackSwing[hole] = trackSwing[j];
+            trackHeld[hole] = trackHeld[j];
             hole = j;
         }
         trackKey[hole] = 0;

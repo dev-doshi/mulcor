@@ -28,6 +28,7 @@ public final class IngressDecoder {
     private final MemorySegment record;
     private final InputSink sink;
     private final boolean compression;
+    private final ColdMailbox mailbox = new ColdMailbox();
     private int entity;
     private long hot, cold, frames;
     // Read by the connection's PlaySession on the same event loop: last reported position and the newest
@@ -51,6 +52,8 @@ public final class IngressDecoder {
     public long hotPackets() { return hot; }
     public long coldPackets() { return cold; }
     public long frames() { return frames; }
+    /** Chat and command frames waiting for the session (same event loop). */
+    ColdMailbox mailbox() { return mailbox; }
     public boolean hasPosition() { return hasPosition; }
     public int lastX1000() { return lastX1000; }
     public int lastZ1000() { return lastZ1000; }
@@ -148,6 +151,33 @@ public final class IngressDecoder {
         }
         if (id == Protocol.GROUND) {
             return emit(Input.POSITION, 0, 0, 0, Input.NO_POSITION | ground(in.readByte()), 0, 0);
+        }
+        if (id == Protocol.SWING) {
+            return emit(Input.SWING, 0, 0, 0, VarInts.read(in), 0, 0);
+        }
+        if (id == Protocol.PLAYER_INPUT) {
+            return emit(Input.PLAYER_INPUT, 0, 0, 0, in.readUnsignedByte(), 0, 0);
+        }
+        if (id == Protocol.PLAYER_COMMAND) {
+            VarInts.read(in); // the player's own entity id
+            int action = VarInts.read(in);
+            if (action != 1 && action != 2) { cold++; return true; } // only START/STOP_SPRINTING change what others see
+            return emit(Input.PLAYER_COMMAND, 0, 0, 0, action, 0, 0);
+        }
+        if (id == Protocol.ABILITIES) {
+            return emit(Input.ABILITIES, 0, 0, 0, in.readUnsignedByte(), 0, 0);
+        }
+        if (id == Protocol.SETTINGS) {
+            in.skipBytes(VarInts.read(in)); // language
+            in.readByte(); // view distance
+            VarInts.read(in); // chat visibility
+            in.readByte(); // chat colours
+            int skin = in.readUnsignedByte();
+            int hand = VarInts.read(in);
+            return emit(Input.SETTINGS, 0, 0, 0, skin, hand, 0);
+        }
+        if (id == Protocol.CHAT || id == Protocol.COMMAND || id == Protocol.SIGNED_COMMAND) {
+            return mailbox.offer(id, in);
         }
         if (id == Protocol.CLICK_WINDOW) {
             int window = VarInts.read(in);

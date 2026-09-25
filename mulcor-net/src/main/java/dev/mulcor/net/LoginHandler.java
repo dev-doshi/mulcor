@@ -91,6 +91,8 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
     private GameProfile profile;
     private byte[] verifyToken;
     private double spawnX, spawnY, spawnZ;
+    /** The client's settings from the configuration phase (vanilla's defaults until it sends them). */
+    private int skinParts = 0x7F, mainHand = 1;
     private int ticket = -1;
     private long joinStarted;
 
@@ -233,7 +235,11 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
                 joinStarted = System.nanoTime();
                 requestJoin();
             }
-            default -> { } // client settings, plugin messages, keep-alives, cookies: nothing to do
+            case net.minestom.server.network.packet.client.common.ClientSettingsPacket settings -> {
+                skinParts = settings.settings().displayedSkinParts() & 0xFF;
+                mainHand = settings.settings().mainHand().ordinal(); // LEFT 0, RIGHT 1 (HumanoidArm ids)
+            }
+            default -> { } // plugin messages, keep-alives, cookies: nothing to do
         }
         ctx.flush();
     }
@@ -366,7 +372,7 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
         var ingress = new IngressHandler(decoder, new TokenBucket(server.perConnectionBurst(), server.perConnectionRate()),
                 server.globalBucket());
         var session = new PlaySession(server, entity, decoder, compression ? server.compressionThreshold() : 0,
-                spawnX, spawnZ, profile);
+                spawnX, spawnZ, profile, skinParts, mainHand);
         ByteBuf leftover = cumulation.isReadable() ? cumulation.retainedSlice() : null;
         ctx.pipeline().addAfter(ctx.name(), "mulcor-play", session);
         ctx.pipeline().addAfter("mulcor-play", "mulcor-ingress", ingress);

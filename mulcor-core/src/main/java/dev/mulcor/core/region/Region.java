@@ -221,6 +221,16 @@ public final class Region {
             s.set(F, o + NetEntities.PITCH, player ? Float.intBitsToFloat(table.aux2(i)) : 0f);
             s.set(I, o + NetEntities.FLAGS, table.flags(i));
             s.set(I, o + NetEntities.DATA, type == Entities.FALLING_BLOCK ? table.aux1(i) : 0);
+            if (player) {
+                int eid = (int) table.id(i);
+                s.set(I, o + NetEntities.META, world.presence[eid]);
+                s.set(I, o + NetEntities.SWING, world.swings[eid]);
+                s.set(I, o + NetEntities.HELD, world.hotbar[eid * 9 + world.heldSlot[eid]]);
+            } else {
+                s.set(I, o + NetEntities.META, 0);
+                s.set(I, o + NetEntities.SWING, 0);
+                s.set(I, o + NetEntities.HELD, 0);
+            }
         }
         NetEntities.endWrite(s, base, epoch, n);
     }
@@ -492,6 +502,8 @@ public final class Region {
             joins++;
             java.util.Arrays.fill(world.hotbar, eid * 9, eid * 9 + 9, 0);
             world.heldSlot[eid] = 0;
+            world.presence[eid] = Presence.DEFAULT;
+            world.swings[eid] = 0;
         }
         world.joins.complete(ticket, eid);
     }
@@ -669,6 +681,17 @@ public final class Region {
             case Input.HELD_SLOT -> {
                 if (a >= 0 && a < 9) world.heldSlot[eid] = a;
             }
+            case Input.SWING -> {
+                int s = world.swings[eid];
+                world.swings[eid] = a == 0 ? (s & 0xFFFF0000) | ((s + 1) & 0xFFFF) : s + 0x10000;
+            }
+            case Input.PLAYER_INPUT -> presence(slot, eid, Presence.withShift(world.presence[eid], (a & 32) != 0));
+            case Input.PLAYER_COMMAND -> {
+                if (a == Presence.START_SPRINTING) presence(slot, eid, Presence.withSprint(world.presence[eid], true));
+                else if (a == Presence.STOP_SPRINTING) presence(slot, eid, Presence.withSprint(world.presence[eid], false));
+            }
+            case Input.SETTINGS -> world.presence[eid] = Presence.withSettings(world.presence[eid], a, seg.get(I, off + Input.B));
+            case Input.ABILITIES -> presence(slot, eid, Presence.withFlying(world.presence[eid], (a & 2) != 0));
             case Input.CHEST -> {
                 int count = seg.get(I, off + Input.C);
                 if (count > 0) Sim.takeFromChest(this, eid, a, seg.get(I, off + Input.B), count);
@@ -688,6 +711,7 @@ public final class Region {
                         table.setAux2(slot, seg.get(I, off + Input.C)); // pitch (float bits)
                     }
                     table.setFlags(slot, (a & Input.ON_GROUND) != 0 ? Entities.FLAG_ON_GROUND : 0);
+                    if ((a & Input.NO_POSITION) == 0) presence(slot, eid, world.presence[eid]);
                 }
             }
             case Input.LEAVE -> {
@@ -699,6 +723,12 @@ public final class Region {
             }
             default -> { }
         }
+    }
+
+    /** Store a player's presence with its swimming state and pose brought up to date where it stands. */
+    private void presence(int slot, int eid, int p) {
+        if (table.type(slot) != Entities.PLAYER) return;
+        world.presence[eid] = Presence.update(p, this, table.x(slot), table.y(slot), table.z(slot));
     }
 
     // ---- commit-phase helpers (single-threaded) -------------------------------------------------------------

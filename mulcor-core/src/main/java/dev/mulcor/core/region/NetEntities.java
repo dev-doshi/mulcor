@@ -16,13 +16,14 @@ import java.lang.foreign.ValueLayout;
  *
  * <h2>Record</h2>
  * entity id (int), type ({@link Entities}), position, velocity (doubles), yaw and pitch (floats, degrees), flags
- * ({@link Entities#FLAG_ON_GROUND}), data (a falling block's state).
+ * ({@link Entities#FLAG_ON_GROUND}), data (a falling block's state); for players the packed {@link Presence}, the
+ * swing counters and the held item id (0 for other entities).
  */
 public final class NetEntities {
     public static final long SEQ = 0, COUNT = 8, HEADER = 16;
     public static final long ID = 0, TYPE = 4, X = 8, Y = 16, Z = 24, VX = 32, VY = 40, VZ = 48, YAW = 56, PITCH = 60,
-            FLAGS = 64, DATA = 68;
-    public static final int BYTES = 72;
+            FLAGS = 64, DATA = 68, META = 72, SWING = 76, HELD = 80;
+    public static final int BYTES = 88; // a multiple of 8: the doubles stay aligned
 
     private static final ValueLayout.OfInt I = ValueLayout.JAVA_INT;
 
