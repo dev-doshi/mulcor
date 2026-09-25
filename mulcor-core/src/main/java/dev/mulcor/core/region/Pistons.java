@@ -253,7 +253,9 @@ final class Pistons {
         for (int j = s.destroyCount - 1; j >= 0; j--) {
             long p = s.toDestroy[j];
             int bs = state(r, p);
-            setBlock(r, p, AIR, F_18); // dropResources: not ported
+            // PistonBaseBlock.moveBlocks: dropResources(state, level, pos, blockEntity), then air
+            Loot.dropResources(r, ScheduledTicks.x(p), ScheduledTicks.y(p), ScheduledTicks.z(p), bs, Stacks.EMPTY);
+            setBlock(r, p, AIR, F_18);
             s.states[i++] = bs;
         }
         for (int k = n - 1; k >= 0; k--) {
@@ -523,7 +525,7 @@ final class Pistons {
         int d = facing(st) ^ 1;
         int bx = x + OX[d], by = y + OY[d], bz = z + OZ[d];
         if (isFittingBase(st, Redstone.state(r, bx, by, bz)) && r.world.ownerOfBlock(bx, bz) == r.id) {
-            Redstone.destroyBlock(r, bx, by, bz, Redstone.UPDATE_LIMIT);
+            Redstone.destroyBlock(r, bx, by, bz, true, Redstone.UPDATE_LIMIT);
         }
     }
 
@@ -573,7 +575,7 @@ final class Pistons {
                 if (isAir(bs)) {
                     Redstone.setBlock(r, x, y, z, moved, F_84);
                     // Block.updateOrDestroy(moved, air, level, pos, 3): it cannot stay here
-                    if (moved != bs) Redstone.destroyBlock(r, x, y, z, Redstone.UPDATE_LIMIT);
+                    if (moved != bs) Redstone.destroyBlock(r, x, y, z, true, Redstone.UPDATE_LIMIT);
                 } else {
                     Redstone.setBlock(r, x, y, z, unwaterlogged(bs), F_67);
                     Redstone.neighborChangedAt(r, x, y, z);

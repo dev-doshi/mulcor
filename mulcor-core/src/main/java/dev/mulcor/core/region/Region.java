@@ -142,6 +142,26 @@ public final class Region {
     /** Slots of {@link #blastSet} in use, so it can be cleared without touching all of it. */
     final int[] blastUsed = new int[1 << 12];
 
+    // ---- items and inventories ----
+    /** Scratch for {@link ItemEntities}: fluid heights (water, lava), a flow vector, a moved stack ({@link Menus}). */
+    final double[] fluidHeights = new double[2], flowOut = new double[3];
+    final long[] moving = new long[1];
+    /** Scratch for {@link Crafting}: the items of a shapeless grid. */
+    final int[] craftItems = new int[9];
+    /** Scratch: the player ids of this region (item pickup). */
+    final int[] playerScratch = new int[1024];
+    /** Item grid ({@link ItemEntities#buildGrid}): stamped buckets of entity ids by 2×2-block column. */
+    final int[] itemHead = new int[1 << GRID_BITS], itemStamp = new int[1 << GRID_BITS];
+    final int[] itemNext, itemEid, itemCellX, itemCellZ;
+    int itemGen;
+    public long itemsSpawned, itemsPickedUp;
+    /** The region's {@code level.random} (a SplitMix64 stream seeded from the world seed and the region id). */
+    private long random;
+    /** Players whose inventory changed this tick (published at its end), deduplicated by {@code World.invMarked}. */
+    private final int[] invDirty;
+    private int invDirtyCount;
+    private long invStamp;
+
     public Region(int id, World world, boolean active) {
         this.id = id;
         this.world = world;
@@ -167,6 +187,13 @@ public final class Region {
         this.gridCellZ = new int[cfg.regionEntityCapacity()];
         this.gridX = new double[cfg.regionEntityCapacity()];
         this.gridZ = new double[cfg.regionEntityCapacity()];
+        this.itemNext = new int[cfg.regionEntityCapacity()];
+        this.itemEid = new int[cfg.regionEntityCapacity()];
+        this.itemCellX = new int[cfg.regionEntityCapacity()];
+        this.itemCellZ = new int[cfg.regionEntityCapacity()];
+        this.invDirty = new int[Math.min(cfg.maxEntities(), 4096)];
+        this.random = cfg.seed() * 0x9E3779B97F4A7C15L + id;
+        this.invStamp = (long) id << 40;
         this.snapshotCapacity = Math.min(cfg.regionEntityCapacity(), 2048);
         this.snapshots[0] = mem.allocate((long) snapshotCapacity * EntityRecord.BYTES);
         this.snapshots[1] = mem.allocate((long) snapshotCapacity * EntityRecord.BYTES);
@@ -176,6 +203,53 @@ public final class Region {
         this.samples = new long[cap];
         this.sampleMask = cap - 1;
         this.state = new StateWord(active ? IDLE : INACTIVE);
+    }
+
+    // ---- random, inventories ------------------------------------------------------------------------------------
+
+    private long nextLong() {
+        long z = (random += 0x9E3779B97F4A7C15L);
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        return z ^ (z >>> 31);
+    }
+
+    /** {@code RandomSource.nextFloat}: uniform in [0, 1) with 24 bits. */
+    float nextFloat() {
+        return (nextLong() >>> 40) * 0x1.0p-24f;
+    }
+
+    /** {@code RandomSource.nextDouble}: uniform in [0, 1) with 53 bits. */
+    double nextDouble() {
+        return (nextLong() >>> 11) * 0x1.0p-53;
+    }
+
+    /** {@code RandomSource.nextInt(bound)}. */
+    int nextInt(int bound) {
+        return (int) (((nextLong() >>> 33) * bound) >>> 31);
+    }
+
+    /** Player {@code eid}'s inventory, cursor or menu changed: publish it at the end of this tick. */
+    void invChanged(int eid) {
+        if (world.invMarked[eid] == invStamp) return;
+        if (invDirtyCount == invDirty.length) {
+            world.publishInventory(eid); // the list is full: publish now (readers see a consistent copy either way)
+            return;
+        }
+        world.invMarked[eid] = invStamp;
+        invDirty[invDirtyCount++] = eid;
+    }
+
+    /** Publish the inventories changed this tick ({@link World#publishInventory}). */
+    void publishInventories() {
+        for (int i = 0; i < invDirtyCount; i++) world.publishInventory(invDirty[i]);
+        invDirtyCount = 0;
+        invStamp++;
+    }
+
+    /** {@code LivingEntity.isAlive} of a player (health is not modelled yet, so players are always alive). */
+    boolean alive(int eid) {
+        return world.health[eid] > 0;
     }
 
     // ---- block writes ------------------------------------------------------------------------------------------
@@ -220,12 +294,16 @@ public final class Region {
             s.set(F, o + NetEntities.YAW, player ? Float.intBitsToFloat(table.aux1(i)) : table.inputYaw(i));
             s.set(F, o + NetEntities.PITCH, player ? Float.intBitsToFloat(table.aux2(i)) : 0f);
             s.set(I, o + NetEntities.FLAGS, table.flags(i));
-            s.set(I, o + NetEntities.DATA, type == Entities.FALLING_BLOCK ? table.aux1(i) : 0);
+            s.set(I, o + NetEntities.DATA, type == Entities.FALLING_BLOCK || type == Entities.ITEM ? table.aux1(i) : 0);
             if (player) {
                 int eid = (int) table.id(i);
                 s.set(I, o + NetEntities.META, world.presence[eid]);
                 s.set(I, o + NetEntities.SWING, world.swings[eid]);
-                s.set(I, o + NetEntities.HELD, world.hotbar[eid * 9 + world.heldSlot[eid]]);
+                s.set(I, o + NetEntities.HELD, Stacks.item(world.inv[eid * World.INV + PlayerInv.HOTBAR + world.heldSlot[eid]]));
+            } else if (type == Entities.ITEM) {
+                s.set(I, o + NetEntities.META, table.aux0(i) & 0xFFFF); // damage
+                s.set(I, o + NetEntities.SWING, 0);
+                s.set(I, o + NetEntities.HELD, 0);
             } else {
                 s.set(I, o + NetEntities.META, 0);
                 s.set(I, o + NetEntities.SWING, 0);
@@ -342,10 +420,13 @@ public final class Region {
         Pistons.runBlockEvents(this);    // ServerLevel.runBlockEvents (pistons), to fixpoint
         handlingTick = false;
         Physics.pushAll(this);           // entity pushing (momentum transfer), from start-of-tick positions
-        Sim.simulate(this);              // entities: AI, physics, TNT, falling blocks
+        Sim.simulate(this);              // entities: AI, physics, TNT, falling blocks, items
+        ItemEntities.pickup(this);       // Player.touch → ItemEntity.playerTouch
+        Menus.tickPlayers(this);         // ServerPlayer.tick: containerMenu.stillValid
         Pistons.tickBlockEntities(this); // Level.tickBlockEntities: moving pistons
         Physics.publishSnapshot(this);
         publishNetSnapshot();
+        publishInventories();
         journal.publish();
         long dt = System.nanoTime() - t0;
         lastTickNanos = dt;
@@ -363,6 +444,7 @@ public final class Region {
         blockTicksDone = true;
         fluidTicksDone = true;
         boolean changed = Redstone.commandSetBlock(this, x, y, z, state);
+        publishInventories();
         journal.publish();
         return changed;
     }
@@ -375,6 +457,7 @@ public final class Region {
         blockTicksDone = true;
         fluidTicksDone = true;
         boolean used = Redstone.use(this, x, y, z);
+        publishInventories();
         journal.publish();
         return used;
     }
@@ -500,8 +583,12 @@ public final class Region {
         int eid = spawn(x1000 / 1000.0, y1000 / 1000.0, z1000 / 1000.0, Entities.PLAYER, 0);
         if (eid >= 0) {
             joins++;
-            java.util.Arrays.fill(world.hotbar, eid * 9, eid * 9 + 9, 0);
+            PlayerInv.clear(this, eid);
             world.heldSlot[eid] = 0;
+            world.window[eid] = 0;
+            world.quickcraft[eid] = 0;
+            world.clicks[eid] = 0;
+            world.health[eid] = 20.0F;
             world.presence[eid] = Presence.DEFAULT;
             world.swings[eid] = 0;
             world.gameMode[eid] = World.SURVIVAL;
@@ -673,14 +760,28 @@ public final class Region {
             case Input.MOVE -> Sim.walk(table, slot, a, seg.get(I, off + Input.B));
             case Input.DIG -> Sim.dig(this, eid, x, y, z, a);
             case Input.PLACE -> Sim.useItemOn(this, eid, slot, x, y, z, a, seg.get(I, off + Input.B), seg.get(I, off + Input.C));
-            case Input.CREATIVE_SLOT -> {
-                int hotbarSlot = a - 36; // vanilla accepts creative inventory actions only from creative players
-                if (hotbarSlot >= 0 && hotbarSlot < 9 && world.gameMode[eid] == World.CREATIVE) {
-                    world.hotbar[eid * 9 + hotbarSlot] = seg.get(I, off + Input.C) > 0 ? seg.get(I, off + Input.B) : 0;
-                }
-            }
+            case Input.CREATIVE_SLOT -> creativeSlot(eid, a, seg.get(I, off + Input.B), seg.get(I, off + Input.C));
             case Input.HELD_SLOT -> {
                 if (a >= 0 && a < 9) world.heldSlot[eid] = a;
+            }
+            case Input.CLICK -> Menus.click(this, eid, x, a, seg.get(I, off + Input.B), seg.get(I, off + Input.C));
+            case Input.CLOSE_WINDOW -> {
+                if (x == Menus.containerId(world.window[eid])) Menus.close(this, eid);
+            }
+            case Input.DROP -> {
+                // ServerGamePacketListenerImpl DROP_ITEM / DROP_ALL_ITEMS → ServerPlayer.drop(entireStack)
+                if (table.type(slot) == Entities.PLAYER && world.gameMode[eid] != World.SPECTATOR) {
+                    long dropped = PlayerInv.removeFromSelected(this, eid, a == 1);
+                    if (dropped != Stacks.EMPTY) ItemEntities.dropFromPlayer(this, eid, dropped, false);
+                }
+            }
+            case Input.SWAP_HANDS -> {
+                if (world.gameMode[eid] != World.SPECTATOR) {
+                    int sel = PlayerInv.selectedSlot(this, eid);
+                    long offhand = PlayerInv.get(this, eid, PlayerInv.OFFHAND);
+                    PlayerInv.set(this, eid, PlayerInv.OFFHAND, PlayerInv.get(this, eid, sel));
+                    PlayerInv.set(this, eid, sel, offhand);
+                }
             }
             case Input.SWING -> {
                 int s = world.swings[eid];
@@ -724,12 +825,31 @@ public final class Region {
             }
             case Input.LEAVE -> {
                 if (table.type(slot) == Entities.PLAYER) {
-                    droppedItems += world.players.clear(eid); // the player's items drop where they stood
+                    droppedItems += world.players.clear(eid);
+                    if (world.window[eid] != 0) Menus.close(this, eid); // the table grid goes back to the inventory
+                    // the inventory stays with the player (saved by the server) and is cleared for the next id owner
                     despawn(slot);
                     leaves++;
                 }
             }
             default -> { }
+        }
+    }
+
+    /**
+     * {@code handleSetCreativeModeSlot}: a creative player sets inventory menu slot {@code slot} (1-45) to
+     * {@code item} × {@code count} (damage in the high bits of {@code count}), or drops the stack at slot -1.
+     */
+    private void creativeSlot(int eid, int slot, int item, int countDamage) {
+        if (world.gameMode[eid] != World.CREATIVE) return;
+        int count = countDamage & 0xFFFF, damage = countDamage >>> 16;
+        long stack = item > 0 && item < dev.mulcor.registry.ItemId.COUNT && count > 0 ? Stacks.of(item, 1, damage) : Stacks.EMPTY;
+        if (stack != Stacks.EMPTY && count > Stacks.maxStackSize(stack)) return; // validData
+        stack = Stacks.withCount(stack, count);
+        if (slot >= 1 && slot <= PlayerInv.OFFHAND) {
+            PlayerInv.set(this, eid, slot, stack);
+        } else if (slot < 0 && stack != Stacks.EMPTY) {
+            ItemEntities.dropFromPlayer(this, eid, stack, true); // vanilla also rate limits these drops
         }
     }
 
@@ -880,4 +1000,15 @@ public final class Region {
     public int probeCount() { return probeCount; }
     public long probe(int i) { return probeLog[i]; }
     public void clearProbes() { probeCount = 0; }
+
+    /** Audit helper (tests only): the number of items of {@code item} in this region's item entities. */
+    public long droppedItems(int item) {
+        long n = 0;
+        for (int s = 0; s < table.count(); s++) {
+            if (table.type(s) != Entities.ITEM || !ownsEntity((int) table.id(s))) continue;
+            long st = ItemEntities.stack(table, s);
+            if (Stacks.item(st) == item) n += Stacks.count(st);
+        }
+        return n;
+    }
 }

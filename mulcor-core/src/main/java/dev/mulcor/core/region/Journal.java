@@ -17,6 +17,8 @@ public final class Journal {
     /** Records per region journal; a reader that falls further behind resynchronizes (resends its chunks). */
     public static final int CAPACITY = 1 << 14;
     public static final int BLOCK = 1, BLOCK_EVENT = 2;
+    /** A player picked up an item entity: POS = player id << 32 | item entity id, META low bits = count. */
+    public static final int COLLECT = 3;
 
     private Journal() {}
 

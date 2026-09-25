@@ -8,6 +8,11 @@ public final class Entities {
     public static final int PLAYER = 3;
     /** A block falling under gravity (aux1 = block state); it becomes a block again when it lands. */
     public static final int FALLING_BLOCK = 4;
+    /**
+     * A dropped item ({@link ItemEntities}): aux1 = item | count << 16, aux0 = damage | tickCount % 40 << 16 |
+     * health << 24, aux2 = age (a signed short) | pickup delay << 16. A count of 0 marks it dead.
+     */
+    public static final int ITEM = 5;
 
     public static final int MINER = 0;
     public static final int NAVIGATOR = 1;

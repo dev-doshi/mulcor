@@ -190,6 +190,53 @@ final class Collision {
         return off;
     }
 
+    /** {@code BlockState.isCollisionShapeFullBlock} at (x, y, z); outside the world counts as a full block. */
+    static boolean fullBlock(Region r, int x, int y, int z) {
+        BlockStorage b = r.world.blocks;
+        if (x < 0 || z < 0 || x >= r.world.sizeX() || z >= r.world.sizeZ() || y < b.minY()) return true;
+        return FULL[b.getShared(x, y, z)];
+    }
+
+    /**
+     * {@code Level.noCollision(box)} against blocks: no block collision box (or the world's walls) overlaps the box
+     * with positive volume.
+     */
+    static boolean noCollision(Region r, double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+        BlockStorage b = r.world.blocks;
+        // Shapes stay inside their cell sideways and reach at most 0.5 above it (fences, walls): one layer below.
+        int x0 = (int) Math.floor(minX), x1 = (int) Math.floor(maxX);
+        int y0 = (int) Math.floor(minY) - 1, y1 = (int) Math.floor(maxY);
+        int z0 = (int) Math.floor(minZ), z1 = (int) Math.floor(maxZ);
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                boolean outside = x < 0 || z < 0 || x >= r.world.sizeX() || z >= r.world.sizeZ();
+                for (int y = y0; y <= y1; y++) {
+                    if (outside || y < b.minY()) {
+                        if (overlaps(x, y, z, x + 1, y + 1, z + 1, minX, minY, minZ, maxX, maxY, maxZ)) return false;
+                        continue;
+                    }
+                    int st = b.getShared(x, y, z);
+                    if (st == 0) continue;
+                    if (FULL[st]) {
+                        if (overlaps(x, y, z, x + 1, y + 1, z + 1, minX, minY, minZ, maxX, maxY, maxZ)) return false;
+                        continue;
+                    }
+                    double[] boxes = Shapes.boxes(BlockData.collisionShape(st));
+                    for (int i = 0; i < boxes.length; i += 6) {
+                        if (overlaps(x + boxes[i], y + boxes[i + 1], z + boxes[i + 2], x + boxes[i + 3], y + boxes[i + 4],
+                                z + boxes[i + 5], minX, minY, minZ, maxX, maxY, maxZ)) return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    private static boolean overlaps(double ax0, double ay0, double az0, double ax1, double ay1, double az1,
+            double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+        return ax0 < maxX && ax1 > minX && ay0 < maxY && ay1 > minY && az0 < maxZ && az1 > minZ;
+    }
+
     /** {@code collideWithShapes} / {@code collideBoundingBox}: Y, then X and Z in {@code axisStepOrder}. Writes {@code out}. */
     static void collideBoundingBox(Region r, double minX, double minY, double minZ, double maxX, double maxY, double maxZ,
             double mx, double my, double mz, double[] out) {
@@ -256,9 +303,10 @@ final class Collision {
         BlockStorage b = r.world.blocks;
         float[] out = r.stepCandidates;
         int n = 0;
-        int x0 = (int) Math.floor(minX - EPS) - 1, x1 = (int) Math.floor(maxX + EPS) + 1;
-        int y0 = (int) Math.floor(minY - EPS) - 1, y1 = (int) Math.floor(maxY + EPS) + 1;
-        int z0 = (int) Math.floor(minZ - EPS) - 1, z1 = (int) Math.floor(maxZ + EPS) + 1;
+        // Shapes stay inside their cell sideways and reach at most 0.5 above it (fences, walls): one layer below.
+        int x0 = (int) Math.floor(minX), x1 = (int) Math.floor(maxX);
+        int y0 = (int) Math.floor(minY) - 1, y1 = (int) Math.floor(maxY);
+        int z0 = (int) Math.floor(minZ), z1 = (int) Math.floor(maxZ);
         for (int x = x0; x <= x1; x++) {
             for (int z = z0; z <= z1; z++) {
                 if (x < 0 || z < 0 || x >= r.world.sizeX() || z >= r.world.sizeZ()) continue; // border ignored

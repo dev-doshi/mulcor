@@ -30,7 +30,6 @@ class NetServerIntegrationTest {
             engine.setAiEnabled(false);
             int y = engine.world.surfaceY - 1;
             assertEquals(Blocks.DIRT, engine.world.blocks.get(41, y, 40));
-            long dirtBefore = engine.world.players.total(bot, Blocks.DIRT);
             try (var server = new NetServer(0, 2, engine::submitInput, () -> bot, 1000, 100_000, 1_000_000);
                     Socket client = new Socket("127.0.0.1", server.port())) {
                 System.out.println("transport: " + server.transport());
@@ -44,9 +43,10 @@ class NetServerIntegrationTest {
                     Thread.sleep(1);
                 }
             }
-            engine.run(3);
+            engine.tick();
             assertEquals(Blocks.AIR, engine.world.blocks.get(41, y, 40), "dig packet must break the block");
-            assertEquals(dirtBefore + 1, engine.world.players.total(bot, Blocks.DIRT), "and the item goes to the player");
+            assertEquals(1, engine.world.countDropped(dev.mulcor.registry.Items.byName("minecraft:dirt")),
+                    "and the block pops its item (a bot is no player, so nothing picks it up)");
         }
     }
 

@@ -53,7 +53,10 @@ public final class Input {
      * button, cycles a repeater's delay or a comparator's mode.
      */
     public static final int USE_BLOCK = 11;
-    /** Creative inventory action: A = window slot (hotbar: 36-44), B = item id, C = count (0 clears the slot). */
+    /**
+     * Creative inventory action: A = inventory menu slot (1-45; -1 drops), B = item id, C = count | damage << 16
+     * (count 0 clears the slot).
+     */
     public static final int CREATIVE_SLOT = 12;
     /** Selected hotbar slot: A = 0-8. */
     public static final int HELD_SLOT = 13;
@@ -69,6 +72,17 @@ public final class Input {
     public static final int ABILITIES = 18;
     /** Game mode change ({@code /gamemode}): A = vanilla {@code GameType} id (0 survival, 1 creative, 2 adventure, 3 spectator). */
     public static final int GAME_MODE = 19;
+    /**
+     * Container click ({@code ServerboundContainerClickPacket}): X = container id, A = slot, B = button,
+     * C = click type ({@link Menus}).
+     */
+    public static final int CLICK = 20;
+    /** Container closed by the client: X = container id. */
+    public static final int CLOSE_WINDOW = 21;
+    /** Drop from the selected slot (player action 3/4): A = 1 for the whole stack. */
+    public static final int DROP = 22;
+    /** Swap the selected item with the offhand (player action 6). */
+    public static final int SWAP_HANDS = 23;
 
     /** POSITION flag: the record carries only rotation/ground state; X,Y,Z are ignored. */
     public static final int NO_POSITION = 1;

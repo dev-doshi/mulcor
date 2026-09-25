@@ -33,7 +33,7 @@ import java.lang.foreign.ValueLayout;
  * Pressure plates, tripwires, daylight detectors, targets and other signal sources (their signal is 0);
  * comparator inputs whose value lives in a block entity (containers, jukebox, lectern, ...: they read 0) or an
  * entity (item frames); buttons pressed by arrows; {@code updateShape} of blocks outside this set (fences, walls,
- * ...); item drops of blocks that lose support.
+ * ...).
  */
 final class Redstone {
     private static final ValueLayout.OfInt I = ValueLayout.JAVA_INT;
@@ -127,10 +127,15 @@ final class Redstone {
         return setBlock(r, x, y, z, AIR, UPDATE_ALL);
     }
 
-    /** {@code Level.destroyBlock(pos, drop, null, recursionLeft)} (drops not spawned: see the class notes). */
-    static boolean destroyBlock(Region r, int x, int y, int z, int recursionLeft) {
-        if (isAir(state(r, x, y, z))) return false;
-        return setBlock(r, x, y, z, AIR, UPDATE_ALL, recursionLeft);
+    /**
+     * {@code Level.destroyBlock(pos, drop, null, recursionLeft)}: the block's loot pops (no tool) if {@code drop}, then
+     * the block becomes its fluid's legacy block.
+     */
+    static boolean destroyBlock(Region r, int x, int y, int z, boolean drop, int recursionLeft) {
+        int st = state(r, x, y, z);
+        if (isAir(st)) return false;
+        if (drop) Loot.dropResources(r, x, y, z, st, Stacks.EMPTY);
+        return setBlock(r, x, y, z, FluidStates.legacyBlock(FluidStates.fluid(st)), UPDATE_ALL, recursionLeft);
     }
 
     /**
@@ -360,7 +365,7 @@ final class Redstone {
         int updated = updateShape(r, old, x, y, z, direction, neighborState);
         // Block.updateOrDestroy
         if (updated != old) {
-            if (isAir(updated)) destroyBlock(r, x, y, z, recursionLeft);
+            if (isAir(updated)) destroyBlock(r, x, y, z, (flags & UPDATE_SUPPRESS_DROPS) == 0, recursionLeft);
             else setBlock(r, x, y, z, updated, flags & ~UPDATE_SUPPRESS_DROPS, recursionLeft);
         }
     }

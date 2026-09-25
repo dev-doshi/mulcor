@@ -56,9 +56,9 @@ final class Physics {
 
     private Physics() {}
 
-    static float width(int type) { return type == BOT || type == PLAYER ? 0.6F : 0.98F; }
+    static float width(int type) { return type == BOT || type == PLAYER ? 0.6F : type == ITEM ? 0.25F : 0.98F; }
     static float halfWidth(int type) { return width(type) / 2.0F; } // EntityDimensions.makeBoundingBox: float f = width / 2.0F
-    static float height(int type) { return type == BOT ? 1.95F : type == PLAYER ? 1.8F : 0.98F; }
+    static float height(int type) { return type == BOT ? 1.95F : type == PLAYER ? 1.8F : type == ITEM ? 0.25F : 0.98F; }
     /**
      * {@code Entity.maxUpStep()}: {@code Attributes.STEP_HEIGHT} for living entities (0.6, from the vanilla
      * registry's zombie defaults), 0 for primed TNT and falling blocks.
@@ -70,7 +70,7 @@ final class Physics {
     private static final float ZOMBIE_STEP = (float) dev.mulcor.registry.EntityTypes.attribute(
             dev.mulcor.registry.EntityTypeId.ZOMBIE, dev.mulcor.registry.AttributeId.STEP_HEIGHT);
 
-    static float eyeHeight(int type) { return type == BOT ? 1.74F : type == PLAYER ? 1.62F : 0.15F; }
+    static float eyeHeight(int type) { return type == BOT ? 1.74F : type == PLAYER ? 1.62F : type == ITEM ? 0.2125F : 0.15F; }
     private static boolean pushable(int type) { return type == BOT; }
     private static boolean pusher(int type) { return type == BOT || type == PLAYER; }
 
@@ -190,8 +190,10 @@ final class Physics {
             int by = (int) Math.floor(t.y(s));
             BlockStorage b = r.world.blocks;
             if ((time > 100 && (by <= b.minY() || by >= b.maxYExclusive())) || time > 600) {
+                int block = t.aux1(s);
+                double x = t.x(s), y = t.y(s), z = t.z(s);
                 r.despawn(s);
-                r.droppedItems++;
+                dropBlockItem(r, x, y, z, block); // spawnAtLocation(block) when doEntityDrops
                 return true;
             }
             t.setVel(s, t.vx(s) * 0.98, t.vy(s) * 0.98, t.vz(s) * 0.98);
@@ -204,14 +206,25 @@ final class Physics {
         }
         BlockStorage b = r.world.blocks;
         int block = t.aux1(s);
+        double ex = t.x(s), ey = t.y(s), ez = t.z(s);
         r.despawn(s);
         boolean replaceable = b.inBounds(x, y, z) && b.get(x, y, z) == Blocks.AIR;
         boolean belowFree = b.getShared(x, y - 1, z) == Blocks.AIR; // FallingBlock.isFree for Mulcor's blocks
         // FallingBlockEntity.tick: level.setBlock(pos, blockState, 3) where it lands
         if (!(replaceable && !belowFree && Redstone.setBlock(r, x, y, z, block, Redstone.UPDATE_ALL))) {
-            r.droppedItems++; // breaks and drops as an item
+            dropBlockItem(r, ex, ey, ez, block); // breaks: callOnBrokenAfterFall, spawnAtLocation(block)
         }
         return true;
+    }
+
+    /**
+     * {@code Entity.spawnAtLocation(level, itemLike)}: the block's item at the entity's position (y + 0), with the
+     * default pickup delay and the {@code ItemEntity} constructor's random motion.
+     */
+    private static void dropBlockItem(Region r, double x, double y, double z, int blockState) {
+        int item = dev.mulcor.registry.BlockData.item(dev.mulcor.registry.BlockData.block(blockState));
+        if (item <= 0) return;
+        ItemEntities.spawn(r, x, y, z, Stacks.of(item, 1), r.nextDouble() * 0.2 - 0.1, 0.2, r.nextDouble() * 0.2 - 0.1, 10);
     }
 
     /** Hand the entity to the region that owns its current position, if that is not us. */

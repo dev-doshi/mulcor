@@ -26,11 +26,14 @@ final class Sim {
 
     static void simulate(Region r) {
         EntityTable t = r.table;
+        ItemEntities.buildGrid(r);
         int i = 0;
         while (i < t.count()) {
             boolean removed;
             int type = t.type(i);
-            if (type == TNT) {
+            if (type == ITEM) {
+                removed = ItemEntities.tick(r, i);
+            } else if (type == TNT) {
                 removed = tickTnt(r, i);
             } else if (type == PLAYER) {
                 removed = Physics.handOff(r, i); // client-authoritative: no AI, no physics
@@ -141,15 +144,21 @@ final class Sim {
             rule = BREAK_LEGACY;
         } else {
             int status = action - 1, mode = r.world.gameMode[eid];
-            if (mode == World.CREATIVE) rule = status == 0 ? BREAK_CREATIVE : -1;
+            // Item.canDestroyBlock: swords, tridents and maces break nothing in creative
+            if (mode == World.CREATIVE) rule = status == 0 && !Tools.noCreativeBreak(PlayerInv.selected(r, eid)) ? BREAK_CREATIVE : -1;
             else if (mode == World.SURVIVAL) rule = status == 0 ? BREAK_INSTANT : status == 2 ? BREAK_SURVIVAL : -1;
             else rule = -1;
             if (rule < 0) return;
         }
         if (!r.world.blocks.inBounds(x, y, z)) return;
+        long tool = rule == BREAK_LEGACY ? Stacks.EMPTY : PlayerInv.selected(r, eid);
+        if (rule == BREAK_SURVIVAL || rule == BREAK_INSTANT) {
+            int st = r.world.blocks.getShared(x, y, z);
+            if (!dev.mulcor.registry.BlockData.isAir(st) && !FluidStates.isLiquidBlock(st)) mineBlock(r, eid, st);
+        }
         int owner = r.world.ownerOfBlock(x, z);
         if (owner == r.id) {
-            breakOwned(r, eid, x, y, z, rule);
+            breakOwned(r, eid, x, y, z, rule, tool);
         } else {
             MemorySegment m = r.begin(Msg.BLOCK_BREAK);
             m.set(I, Msg.A, x);
@@ -157,16 +166,31 @@ final class Sim {
             m.set(I, Msg.C, z);
             m.set(I, Msg.D, rule);
             m.set(I, Msg.E, eid);
+            m.set(ValueLayout.JAVA_LONG, Msg.WORD, tool);
             r.send(owner);
         }
     }
 
     /**
+     * {@code ItemStack.mineBlock} → {@code Tool.mineBlock}: a damageable tool loses {@code damagePerBlock} (2 for
+     * swords, else 1) when the block's destroy time is not 0; creative players' tools are not damaged. The block is
+     * read where the player is (a neighbour's block may be a tick stale).
+     */
+    private static void mineBlock(Region r, int eid, int st) {
+        if (r.world.gameMode[eid] == World.CREATIVE) return;
+        int slot = PlayerInv.selectedSlot(r, eid);
+        long tool = PlayerInv.get(r, eid, slot);
+        if (!Tools.isTool(tool) || dev.mulcor.registry.BlockData.hardness(dev.mulcor.registry.BlockData.block(st)) == 0) return;
+        PlayerInv.set(r, eid, slot, Tools.hurt(r, eid, tool, Tools.damagePerBlock(tool)));
+    }
+
+    /**
      * {@code ServerPlayerGameMode.destroyBlock}: {@code level.removeBlock(pos, false)} leaves the block's fluid (a
      * waterlogged block becomes water). Air and liquid blocks cannot be broken, unbreakable blocks (destroy time -1)
-     * only in creative. Mined blocks go to the player's inventory (no item entities yet); creative mining drops nothing.
+     * only in creative. Survival mining pops the block's loot ({@link Loot}) if the tool can harvest it; creative
+     * mining drops nothing.
      */
-    static void breakOwned(Region r, int eid, int x, int y, int z, int rule) {
+    static void breakOwned(Region r, int eid, int x, int y, int z, int rule, long tool) {
         BlockStorage b = r.world.blocks;
         int st = b.get(x, y, z);
         if (rule == BREAK_LEGACY) {
@@ -178,8 +202,9 @@ final class Sim {
         if (dev.mulcor.registry.BlockData.isAir(st) || FluidStates.isLiquidBlock(st)) return;
         float hardness = dev.mulcor.registry.BlockData.hardness(dev.mulcor.registry.BlockData.block(st));
         if (rule != BREAK_CREATIVE && (hardness < 0 || rule == BREAK_INSTANT && hardness != 0)) return;
+        // Block.playerWillDestroy → removeBlock → (canHarvest) playerDestroy → dropResources with the tool
         Redstone.setBlock(r, x, y, z, FluidStates.legacyBlock(FluidStates.fluid(st)), Redstone.UPDATE_ALL);
-        if (rule != BREAK_CREATIVE && Blocks.isMineable(st)) deliver(r, eid, st, 1);
+        if (rule != BREAK_CREATIVE && Loot.canHarvest(st, tool)) Loot.dropResources(r, x, y, z, st, tool);
     }
 
     /** Entity {@code eid} (owned by {@code r}) places one {@code item} from its inventory. */
@@ -193,8 +218,19 @@ final class Sim {
         if (face1 > 0 && face1 <= 6) {
             int d = face1 - 1;
             int cx = x - RedstoneStates.OX[d], cy = y - RedstoneStates.OY[d], cz = z - RedstoneStates.OZ[d];
-            if (r.world.blocks.inBounds(cx, cy, cz) && r.world.ownerOfBlock(cx, cz) == r.id && Redstone.use(r, cx, cy, cz)) {
-                return;
+            if (r.world.blocks.inBounds(cx, cy, cz) && r.world.ownerOfBlock(cx, cz) == r.id) {
+                // ServerPlayerGameMode.useItemOn: a sneaking player holding an item skips the block's use action
+                boolean skipUse = Presence.shift(r.world.presence[eid]) && item == Input.HELD_ITEM
+                        && (PlayerInv.selected(r, eid) != Stacks.EMPTY || PlayerInv.get(r, eid, PlayerInv.OFFHAND) != Stacks.EMPTY);
+                if (!skipUse) {
+                    int used = r.world.blocks.get(cx, cy, cz);
+                    if (dev.mulcor.registry.BlockData.block(used) == dev.mulcor.registry.BlockId.CRAFTING_TABLE
+                            && r.table.type(slot) == PLAYER) {
+                        Menus.openCraftingTable(r, eid, cx, cy, cz);
+                        return;
+                    }
+                    if (Redstone.use(r, cx, cy, cz)) return;
+                }
             }
             if (item == Input.HELD_ITEM) {
                 placeHeld(r, eid, slot, cx, cy, cz, d, cursor);
@@ -210,8 +246,11 @@ final class Sim {
      * {@link Placement}; nothing is consumed. Only positions this region owns (a border deviation, like the use).
      */
     private static void placeHeld(Region r, int eid, int slot, int cx, int cy, int cz, int face, int cursor) {
-        int item = r.world.hotbar[eid * 9 + r.world.heldSlot[eid]];
-        int block = item > 0 ? dev.mulcor.registry.Items.block(item) : -1;
+        if (r.world.gameMode[eid] == World.SPECTATOR || r.world.gameMode[eid] == World.ADVENTURE) return;
+        int invSlot = PlayerInv.selectedSlot(r, eid);
+        long held = PlayerInv.get(r, eid, invSlot);
+        int item = Stacks.item(held);
+        int block = held != Stacks.EMPTY ? dev.mulcor.registry.Items.block(item) : -1;
         if (block < 0) return; // not a block item (item use is not ported)
         int clicked = r.world.blocks.get(cx, cy, cz);
         boolean replacingClicked = Placement.replaceable(clicked) && dev.mulcor.registry.BlockData.block(clicked) != block;
@@ -247,6 +286,8 @@ final class Sim {
         if (!Redstone.setBlock(r, x, y, z, st, 11)) return;
         Placement.placeSecondHalf(r, st, x, y, z);
         Redstone.placedBy(r, st, x, y, z);
+        // BlockItem.place: itemStack.consume(1, player) (not in creative)
+        if (r.world.gameMode[eid] != World.CREATIVE) PlayerInv.set(r, eid, invSlot, Stacks.withCount(held, Stacks.count(held) - 1));
     }
 
     static void place(Region r, int eid, int x, int y, int z, int item) {
@@ -401,7 +442,8 @@ final class Sim {
         int a = seg.get(I, off + Msg.A), b = seg.get(I, off + Msg.B), c = seg.get(I, off + Msg.C);
         int d = seg.get(I, off + Msg.D);
         switch (kind) {
-            case Msg.BLOCK_BREAK -> breakOwned(r, seg.get(I, off + Msg.E), a, b, c, d);
+            case Msg.BLOCK_BREAK -> breakOwned(r, seg.get(I, off + Msg.E), a, b, c, d,
+                    seg.get(ValueLayout.JAVA_LONG, off + Msg.WORD));
             case Msg.BLOCK_PLACE -> placeOwned(r, seg.get(I, off + Msg.E), a, b, c, d);
             case Msg.EXPLOSION -> Explosion.receive(r, seg, off);
             case Msg.EXPLOSION_BLOCKS -> Explosion.receiveBlocks(r, seg, off);

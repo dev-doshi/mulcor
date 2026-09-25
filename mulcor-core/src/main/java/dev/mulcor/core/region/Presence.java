@@ -40,6 +40,8 @@ public final class Presence {
     /** Vanilla {@code HumanoidArm} id: 0 left, 1 right. */
     public static int mainHand(int p) { return (p >>> 16) & 1; }
     public static int pose(int p) { return (p >>> 17) & 31; }
+    /** {@code isShiftKeyDown} (= {@code isSecondaryUseActive}). */
+    static boolean shift(int p) { return (p & SHIFT_DOWN) != 0; }
 
     /** The client's settings: skin parts shown and main hand (0 left, 1 right). */
     static int withSettings(int p, int skinParts, int mainHand) {

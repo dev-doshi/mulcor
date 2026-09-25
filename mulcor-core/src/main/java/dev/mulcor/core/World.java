@@ -38,10 +38,28 @@ public final class World implements AutoCloseable {
     public final OffHeapInventory players;
     public final OffHeapInventory chests;
     /**
-     * Network players' hotbars as vanilla item ids (0 = empty), 9 per entity id, and the selected slot. Written and
-     * read only by the region that owns the player (hand-offs happen at the epoch barrier).
+     * Network players' inventories: {@link #INV} {@link dev.mulcor.core.region.Stacks} per entity id, indexed like
+     * vanilla's {@code InventoryMenu} (0 craft result, 1-4 craft grid, 5-8 armor head to feet, 9-35 main,
+     * 36-44 hotbar, 45 offhand), then the crafting table's grid (46-54) and result (55). Plus the stack on the
+     * cursor ({@code carried}), the selected hotbar slot, the open container ({@link #window}: container id |
+     * menu kind << 8, 0 = the inventory) and the number of clicks handled. Written only by the region that owns
+     * the player; network threads read the copies {@code Region} publishes into {@link #invPub}.
      */
-    public final int[] hotbar, heldSlot;
+    public final long[] inv, carried;
+    public final int[] heldSlot, window, clicks, containerCounter;
+    /** Block position of the open crafting table ({@code ScheduledTicks.pack}), for {@code stillValid}. */
+    public final long[] menuPos;
+    /** Drag state ({@code AbstractContainerMenu.quickcraftStatus | quickcraftType << 8}) and the dragged-over slots (a mask). */
+    public final int[] quickcraft;
+    public final long[] quickcraftSlots;
+    /** Per-tick dedup stamps for {@code Region.invChanged}. */
+    public final long[] invMarked;
+    public static final int INV = 56;
+    /** Published inventory: {@link #INV} slots, the carried stack, then window | clicks << 32. */
+    public static final int INV_PUB = INV + 2;
+    /** Published copies of {@link #inv} (see {@code Region.publishInventories}), guarded by the seqlock {@link #invSeq}. */
+    public final long[] invPub;
+    public final int[] invSeq;
     /**
      * Network players' visible state ({@link dev.mulcor.core.region.Presence}) and arm-swing counters, per entity id.
      * Written only by the owning region.
@@ -49,6 +67,8 @@ public final class World implements AutoCloseable {
     public final int[] presence, swings;
     /** Network players' game modes (vanilla {@code GameType} ids), per entity id. Written only by the owning region. */
     public final int[] gameMode;
+    /** Network players' health ({@code LivingEntity.getHealth}), per entity id. Written only by the owning region. */
+    public final float[] health;
     public static final int SURVIVAL = 0, CREATIVE = 1, ADVENTURE = 2, SPECTATOR = 3;
     /** Day time minus game time (the epoch): {@code /time set} moves it. Cold: written by commands. */
     public volatile long dayTimeOffset;
@@ -80,11 +100,22 @@ public final class World implements AutoCloseable {
         this.light = new LightEngine(blocks, blockLight, skyLight);
         this.directory = new EntityDirectory(memory, cfg.maxEntities());
         this.players = new OffHeapInventory(memory, cfg.maxEntities(), PLAYER_SLOTS);
-        this.hotbar = new int[cfg.maxEntities() * 9];
+        this.inv = new long[cfg.maxEntities() * INV];
+        this.carried = new long[cfg.maxEntities()];
         this.heldSlot = new int[cfg.maxEntities()];
+        this.window = new int[cfg.maxEntities()];
+        this.clicks = new int[cfg.maxEntities()];
+        this.containerCounter = new int[cfg.maxEntities()];
+        this.menuPos = new long[cfg.maxEntities()];
+        this.quickcraft = new int[cfg.maxEntities()];
+        this.quickcraftSlots = new long[cfg.maxEntities()];
+        this.invMarked = new long[cfg.maxEntities()];
+        this.invPub = new long[cfg.maxEntities() * INV_PUB];
+        this.invSeq = new int[cfg.maxEntities()];
         this.presence = new int[cfg.maxEntities()];
         this.swings = new int[cfg.maxEntities()];
         this.gameMode = new int[cfg.maxEntities()];
+        this.health = new float[cfg.maxEntities()];
         int numChests = cellsX * cellsZ * cfg.chestsPerCell();
         this.chests = new OffHeapInventory(memory, numChests, CHEST_SLOTS);
         this.chestX = new int[numChests];
@@ -99,6 +130,37 @@ public final class World implements AutoCloseable {
         for (int r = 0; r < regions.length; r++) {
             regions[r] = new Region(r, this, partition.isActive(r));
         }
+    }
+
+    private static final java.lang.invoke.VarHandle SEQ = java.lang.invoke.MethodHandles.arrayElementVarHandle(int[].class);
+
+    /** Region side of the inventory seqlock: copy player {@code eid}'s inventory into {@link #invPub}. */
+    public void publishInventory(int eid) {
+        int s = invSeq[eid];
+        SEQ.setOpaque(invSeq, eid, s + 1);
+        java.lang.invoke.VarHandle.storeStoreFence();
+        int base = eid * INV_PUB;
+        System.arraycopy(inv, eid * INV, invPub, base, INV);
+        invPub[base + INV] = carried[eid];
+        invPub[base + INV + 1] = (window[eid] & 0xFFFFFFFFL) | (long) clicks[eid] << 32;
+        SEQ.setRelease(invSeq, eid, s + 2);
+    }
+
+    /**
+     * Network side of the seqlock: copy player {@code eid}'s published inventory into {@code out} ({@link #INV_PUB}
+     * longs). Returns the sequence number read, or -1 if a write was in progress (try again later).
+     */
+    public int readInventory(int eid, long[] out) {
+        int s = (int) SEQ.getAcquire(invSeq, eid);
+        if ((s & 1) != 0) return -1;
+        System.arraycopy(invPub, eid * INV_PUB, out, 0, INV_PUB);
+        java.lang.invoke.VarHandle.loadLoadFence();
+        return (int) SEQ.getOpaque(invSeq, eid) == s ? s : -1;
+    }
+
+    /** The published sequence number of player {@code eid}'s inventory (changes on every publish). */
+    public int inventorySeq(int eid) {
+        return (int) SEQ.getAcquire(invSeq, eid);
     }
 
     /** {@code Abilities.mayfly} of a game mode ({@code GameType.updatePlayerAbilities}). */
@@ -226,6 +288,13 @@ public final class World implements AutoCloseable {
         long n = 0;
         for (int i = 0; i < players.inventories(); i++) n += players.total(i, item);
         for (int i = 0; i < chests.inventories(); i++) n += chests.total(i, item);
+        return n;
+    }
+
+    /** Items of registry id {@code item} lying on the ground as item entities. */
+    public long countDropped(int item) {
+        long n = 0;
+        for (var r : regions) if (r != null) n += r.droppedItems(item);
         return n;
     }
 
