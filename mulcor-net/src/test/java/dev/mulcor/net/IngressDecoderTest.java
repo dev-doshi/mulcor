@@ -206,6 +206,8 @@ class IngressDecoderTest {
     /** Hotbar selection and creative picks, including a stack with components (the rest of its frame is skipped). */
     @Test
     void decodesHeldSlotAndCreativeSlots() {
+        // CUSTOM_NAME encodes a text component, which needs Minestom's serializers bound.
+        if (net.minestom.server.MinecraftServer.process() == null) net.minestom.server.MinecraftServer.init();
         var sink = new RecordingSink();
         var dec = new IngressDecoder(5, sink, false);
         ByteBuf buf = direct();
