@@ -63,6 +63,18 @@ class EntityTableTest {
         assertEquals("OWNED(region=5, epoch=9)", Ownership.toString(Ownership.pack(Ownership.OWNED, 5, 9)));
     }
 
+    /** Vanilla clients treat entity id 0 as unassigned, so the directory must never hand it out. */
+    @Test
+    void directoryNeverAllocatesIdZero() {
+        var dir = new EntityDirectory(mem, 4);
+        assertEquals(1, dir.allocate(1, 0));
+        assertEquals(2, dir.allocate(1, 0));
+        assertEquals(3, dir.allocate(1, 0));
+        assertEquals(-1, dir.allocate(1, 0), "id 0 is reserved, so only capacity - 1 ids exist");
+        dir.free(2);
+        assertEquals(2, dir.allocate(1, 0));
+    }
+
     /** Many threads race to claim one in-transit entity; exactly one claim may succeed per round. */
     @Test
     void directoryClaimIsExclusive() throws Exception {

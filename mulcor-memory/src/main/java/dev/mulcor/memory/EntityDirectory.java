@@ -11,6 +11,9 @@ import java.lang.foreign.MemorySegment;
  *
  * <p>Each 16-byte row holds {@code ownership:long} ({@link Ownership}) and {@code slot:int}. Ids are recycled
  * through a lock-free {@link TaggedFreeList}.
+ *
+ * <p>Id 0 is never handed out: vanilla numbers entities from 1, and the client treats id 0 as "not yet
+ * assigned" (joining with it crashes the client in {@code ClientLevel.addEntity}).
  */
 public final class EntityDirectory {
     private static final long ROW = 16;
@@ -25,7 +28,11 @@ public final class EntityDirectory {
         this.capacity = capacity;
         this.rows = memory.allocate(capacity * ROW);
         this.ids = new TaggedFreeList(memory, capacity);
+        if (ids.pop() != RESERVED) throw new IllegalStateException("fresh free list must yield id 0 first");
     }
+
+    /** The id reserved as vanilla's "unassigned" sentinel; {@link #allocate} never returns it. */
+    public static final int RESERVED = 0;
 
     public int capacity() {
         return capacity;
@@ -33,6 +40,7 @@ public final class EntityDirectory {
 
     /**
      * Allocate an id already owned by {@code region} in {@code epoch}. Returns {@code -1} if all ids are in use.
+     * Never returns {@link #RESERVED}, so at most {@code capacity - 1} ids are live at once.
      */
     public int allocate(int region, int epoch) {
         int id = ids.pop();
