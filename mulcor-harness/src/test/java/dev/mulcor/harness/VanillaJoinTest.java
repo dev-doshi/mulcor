@@ -124,15 +124,16 @@ class VanillaJoinTest {
                 tickUntil(engine, () -> c.viewCenterX == 0 && c.viewCenterZ == 0
                         && c.chunks.containsKey(VanillaClient.chunkKey(0, 0)), "view re-centred and refilled");
 
-                // Dig the block under our feet: the owning region breaks it, the item reaches us, the client's
-                // prediction sequence is acknowledged.
+                // Dig the block under our feet (creative: one start-digging breaks it): the owning region breaks it,
+                // nothing drops (vanilla creative), and the client's prediction sequence is acknowledged.
                 int by = ty - 1;
                 int block = engine.world.blocks.getShared(10, by, 12);
                 assertTrue(Blocks.isMineable(block), "standing on " + block);
                 long before = engine.world.players.total(eid, block);
                 c.startDigging(10, by, 12, 42);
                 tickUntil(engine, () -> engine.world.blocks.getShared(10, by, 12) == Blocks.AIR && c.lastAckedSequence == 42, "dig");
-                tickUntil(engine, () -> engine.world.players.total(eid, block) == before + 1, "item delivered");
+                engine.run(2);
+                assertEquals(before, engine.world.players.total(eid, block), "creative breaking drops nothing");
             }
             tickUntil(engine, () -> engine.stats().leaves == 1, "leave processed");
             assertEquals(0, ctx.online().get());

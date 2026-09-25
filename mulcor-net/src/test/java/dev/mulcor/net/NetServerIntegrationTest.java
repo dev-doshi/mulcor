@@ -36,7 +36,8 @@ class NetServerIntegrationTest {
                 System.out.println("transport: " + server.transport());
                 OutputStream out = client.getOutputStream();
                 out.write(Packets.position(40.5, engine.world.surfaceY, 40.5));
-                out.write(Packets.dig(41, y, 40));
+                out.write(Packets.dig(41, y, 40)); // survival: start, then finish once the client's progress is full
+                out.write(Packets.finishDig(41, y, 40));
                 out.flush();
                 for (int i = 0; i < 2000 && engine.world.blocks.get(41, y, 40) != Blocks.AIR; i++) {
                     engine.tick();

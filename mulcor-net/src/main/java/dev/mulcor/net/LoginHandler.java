@@ -48,6 +48,7 @@ import net.minestom.server.network.packet.server.login.LoginDisconnectPacket;
 import net.minestom.server.network.packet.server.login.LoginSuccessPacket;
 import net.minestom.server.network.packet.server.login.SetCompressionPacket;
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket;
+import net.minestom.server.network.packet.server.play.EntityStatusPacket;
 import net.minestom.server.network.packet.server.play.JoinGamePacket;
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket;
 import net.minestom.server.network.packet.server.play.SpawnPositionPacket;
@@ -360,8 +361,13 @@ public final class LoginHandler extends ChannelInboundHandlerAdapter {
         state = ConnectionState.PLAY;
         int view = server.viewDistance();
         send(new JoinGamePacket(entity, false, List.of(Vanilla.WORLD), server.maxPlayers(), view, view, false, true,
-                false, new PlayerSpawnInfo(Vanilla.OVERWORLD_ID, Vanilla.WORLD, 0L, GameMode.CREATIVE, null, false,
-                        true, null, 0, 63), false, false));
+                false, new PlayerSpawnInfo(Vanilla.OVERWORLD_ID, Vanilla.WORLD, 0L, GameMode.values()[server.gameMode()],
+                        null, false, true, null, 0, 63), false, false));
+        // ServerPlayer join sequence: abilities, then (every player may use commands here) op level 4 as entity
+        // event 24 + level, then the command tree.
+        send(PlaySession.abilities(server.gameMode()));
+        send(new EntityStatusPacket(entity, (byte) 28));
+        send(Commands.TREE);
         send(new SpawnPositionPacket(new WorldPos(Vanilla.WORLD, new Vec(spawnX, spawnY, spawnZ)), 0f, 0f));
         send(new PlayerPositionAndLookPacket(1, new Vec(spawnX, spawnY, spawnZ), Vec.ZERO, 0f, 0f, 0));
         send(new ChangeGameStatePacket(ChangeGameStatePacket.Reason.LEVEL_CHUNKS_LOAD_START, 0f));

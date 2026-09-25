@@ -13,6 +13,8 @@ import dev.mulcor.memory.NativeMemory;
 import dev.mulcor.memory.ScheduledTicks;
 import dev.mulcor.registry.EntityTypeId;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.concurrent.FastThreadLocal;
@@ -24,8 +26,24 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
+import net.kyori.adventure.text.Component;
+import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.GameMode;
+import net.minestom.server.network.ConnectionState;
 import net.minestom.server.network.NetworkBuffer;
+import net.minestom.server.network.packet.PacketWriting;
+import net.minestom.server.network.packet.client.play.ClientChatMessagePacket;
+import net.minestom.server.network.packet.client.play.ClientCommandChatPacket;
+import net.minestom.server.network.packet.client.play.ClientSignedCommandChatPacket;
+import net.minestom.server.network.packet.server.ServerPacket;
+import net.minestom.server.network.packet.server.common.DisconnectPacket;
+import net.minestom.server.network.packet.server.play.ChangeGameStatePacket;
+import net.minestom.server.network.packet.server.play.DisguisedChatPacket;
+import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket;
+import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket;
+import net.minestom.server.network.packet.server.play.SystemChatPacket;
 import net.minestom.server.network.packet.server.play.PlayerInfoRemovePacket;
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket;
 import net.minestom.server.network.player.GameProfile;
@@ -45,7 +63,9 @@ import java.util.concurrent.TimeUnit;
  *       journal behind resends its chunks instead;</li>
  *   <li>tracks entities ({@link #trackEntities}) from the regions' network snapshots: spawns those that come into
  *       range, syncs the ones that moved, removes those that left or vanished;</li>
- *   <li>acknowledges the client's block actions and sends a keep-alive every 10 s.</li>
+ *   <li>acknowledges the client's block actions and sends a keep-alive every 10 s,</li>
+ *   <li>handles the cold packets the decoder parked ({@link ColdMailbox}): chat (broadcast like a server without
+ *       secure chat), commands ({@link Commands}), and compressed frames (inflated, then decoded as usual).</li>
  * </ul>
  * Joining adds the player to every tab list (and every online player to its own), so player entities can be shown;
  * leaving removes it.
@@ -103,7 +123,12 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
     /** A copy of one region's snapshot buffer, read and validated before use (see {@link NetEntities}). */
     private final MemorySegment snapCopy;
     private int centerX, centerZ, ring;
-    private int lastAcked = -1;
+    private int lastAcked = -1, pendingAck = -1;
+    /** This player's game mode (vanilla GameType id); written on its event loop, read by commands anywhere. */
+    private volatile int gameMode;
+    private int teleportId = 1; // the join teleport is 1
+    private final double spawnX, spawnZ;
+    private Inflater inflater;
     private long lastKeepAlive;
     private long chunksSent;
     private ChannelHandlerContext ctx;
@@ -139,6 +164,9 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         this.journals = server.engine().world.journals;
         this.cursors = new long[journals.length];
         for (int r = 0; r < journals.length; r++) cursors[r] = journals[r].published(); // chunks sent later are newer
+        this.gameMode = server.gameMode();
+        this.spawnX = spawnX;
+        this.spawnZ = spawnZ;
         this.centerX = Math.floorDiv((int) Math.floor(spawnX), 16);
         this.centerZ = Math.floorDiv((int) Math.floor(spawnZ), 16);
     }
@@ -170,6 +198,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         stream(out);
         ctx.writeAndFlush(out);
         joinTabLists();
+        request(Input.GAME_MODE, gameMode, 0, 0);
         request(Input.SETTINGS, skinParts, mainHand, 0);
         task = ctx.executor().scheduleAtFixedRate(this::update, 50, 50, TimeUnit.MILLISECONDS);
     }
@@ -194,6 +223,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         if (closed) return;
         closed = true;
         if (task != null) task.cancel(false);
+        if (inflater != null) inflater.end();
         server.online().decrementAndGet();
         leaveTabLists();
         leave();
@@ -201,15 +231,22 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
 
     /** Offer an input for this player's entity to its region; retried shortly while the ingress ring is full. */
     void request(int kind, int a, int b, int c) {
+        request(kind, 0, 0, 0, a, b, c);
+    }
+
+    private void request(int kind, int x, int y, int z, int a, int b, int c) {
         if (closed) return;
         scratch.fill((byte) 0);
         scratch.set(ValueLayout.JAVA_INT, Input.KIND, kind);
         scratch.set(ValueLayout.JAVA_INT, Input.ENTITY, entity);
+        scratch.set(ValueLayout.JAVA_INT, Input.X, x);
+        scratch.set(ValueLayout.JAVA_INT, Input.Y, y);
+        scratch.set(ValueLayout.JAVA_INT, Input.Z, z);
         scratch.set(ValueLayout.JAVA_INT, Input.A, a);
         scratch.set(ValueLayout.JAVA_INT, Input.B, b);
         scratch.set(ValueLayout.JAVA_INT, Input.C, c);
         if (!server.engine().submitInput(scratch, 0)) {
-            ctx.executor().schedule(() -> request(kind, a, b, c), 5, TimeUnit.MILLISECONDS);
+            ctx.executor().schedule(() -> request(kind, x, y, z, a, b, c), 5, TimeUnit.MILLISECONDS);
         }
     }
 
@@ -228,6 +265,8 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
 
     private void update() {
         if (closed || !ctx.channel().isActive()) return;
+        if (!decoder.mailbox().isEmpty()) drainCold();
+        if (closed) return;
         PlayWriter w = writer();
         ByteBuf out = ctx.alloc().directBuffer(16 * 1024);
         if (decoder.hasPosition()) {
@@ -238,11 +277,13 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         forwardChanges(w, out);
         trackEntities(w, out);
         if (--timeCountdown <= 0) sendTime(w, out);
-        int seq = decoder.lastSequence();
-        if (seq > lastAcked) {
-            w.acknowledgeBlockChange(seq, out);
-            lastAcked = seq;
+        // Acknowledge one update late: by then the region has applied the action and the block updates it caused are
+        // forwarded above, so the client ends its prediction with the server's answer already in hand.
+        if (pendingAck > lastAcked) {
+            w.acknowledgeBlockChange(pendingAck, out);
+            lastAcked = pendingAck;
         }
+        pendingAck = decoder.lastSequence();
         long now = System.nanoTime();
         if (now - lastKeepAlive >= KEEP_ALIVE_NANOS) {
             w.keepAlive(now, out);
@@ -318,12 +359,20 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         for (GameProfile.Property p : profile.properties()) {
             props.add(new PlayerInfoUpdatePacket.Property(p.name(), p.value(), p.signature()));
         }
-        return new PlayerInfoUpdatePacket.Entry(profile.uuid(), profile.name(), props, true, 0, GameMode.CREATIVE, null,
-                null, 0, true);
+        return new PlayerInfoUpdatePacket.Entry(profile.uuid(), profile.name(), props, true, 0,
+                GameMode.values()[gameMode], null, null, 0, true);
+    }
+
+    /** A packet's id and payload (no frame), as {@link #sendRaw} takes it. */
+    static byte[] body(ServerPacket packet) {
+        NetworkBuffer nb = NetworkBuffer.resizableBuffer(Vanilla.REGISTRIES);
+        PacketWriting.writeFramedPacket(nb, ConnectionState.PLAY, packet, 0);
+        nb.read(NetworkBuffer.VAR_INT); // frame length
+        return nb.read(NetworkBuffer.RAW_BYTES);
     }
 
     private static <T> byte[] serialize(int id, NetworkBuffer.Type<T> type, T packet) {
-        NetworkBuffer nb = NetworkBuffer.resizableBuffer();
+        NetworkBuffer nb = NetworkBuffer.resizableBuffer(Vanilla.REGISTRIES);
         nb.write(NetworkBuffer.VAR_INT, id);
         nb.write(type, packet);
         return nb.read(NetworkBuffer.RAW_BYTES);
@@ -341,6 +390,184 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
     private static void sendTo(PlaySession other, byte[] packet) {
         ChannelHandlerContext c = other.ctx;
         if (c != null) c.executor().execute(() -> other.sendRaw(packet));
+    }
+
+    // ---- chat, commands and game modes (cold) -------------------------------------------------------------------
+
+    Players players() { return players; }
+    int maxPlayers() { return server.maxPlayers(); }
+    World world() { return world; }
+    long gameTime() { return server.engine().completedEpoch(); }
+    int gameMode() { return gameMode; }
+    /** Last position the client reported (read from any thread: a slightly stale value only). */
+    double x() { return decoder.hasPosition() ? decoder.lastX1000() / 1000.0 : spawnX; }
+    double y() { return decoder.hasPosition() ? decoder.lastY1000() / 1000.0 : world.surfaceY; }
+    double z() { return decoder.hasPosition() ? decoder.lastZ1000() / 1000.0 : spawnZ; }
+
+    /** Run {@code task} on this player's event loop. */
+    void run(Runnable task) {
+        ChannelHandlerContext c = ctx;
+        if (c != null) c.executor().execute(task);
+    }
+
+    /** A system message to this player, from its own event loop. */
+    void system(Component message) {
+        sendRaw(body(new SystemChatPacket(message, false)));
+    }
+
+    /** A system message to this player, from any thread. */
+    void post(Component message) {
+        sendTo(this, body(new SystemChatPacket(message, false)));
+    }
+
+    /** Vanilla {@code Abilities} for a game mode: invulnerable 1, flying 2, may fly 4, instant build 8. */
+    static PlayerAbilitiesPacket abilities(int mode) {
+        byte flags = switch (mode) {
+            case World.CREATIVE -> 1 | 4 | 8;
+            case World.SPECTATOR -> 1 | 2 | 4;
+            default -> 0;
+        };
+        return new PlayerAbilitiesPacket(flags, 0.05f, 0.1f);
+    }
+
+    /** {@code ServerPlayer.setGameMode}: tell the client, its abilities, every tab list, then the region. */
+    void changeGameMode(int mode) {
+        if (closed || mode == gameMode) return;
+        gameMode = mode;
+        sendRaw(body(new ChangeGameStatePacket(ChangeGameStatePacket.Reason.CHANGE_GAMEMODE, mode)));
+        sendRaw(body(abilities(mode)));
+        byte[] update = serialize(Protocol.OUT_PLAYER_INFO_UPDATE, PlayerInfoUpdatePacket.SERIALIZER,
+                new PlayerInfoUpdatePacket(EnumSet.of(PlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE), List.of(entry())));
+        for (PlaySession p : Commands.all(players)) {
+            if (p == this) sendRaw(update);
+            else sendTo(p, update);
+        }
+        request(Input.GAME_MODE, mode, 0, 0);
+    }
+
+    /** Send Set Time now (after {@code /time}). */
+    void resendTime() {
+        if (closed || !ctx.channel().isActive()) return;
+        ByteBuf out = ctx.alloc().directBuffer(64);
+        sendTime(writer(), out);
+        ctx.writeAndFlush(out);
+    }
+
+    /** Teleport this player (keeping its rotation); its moves are ignored until the client confirms. */
+    void teleport(double x, double y, double z) {
+        if (closed) return;
+        int id = ++teleportId;
+        decoder.expectTeleport(id);
+        sendRaw(body(new PlayerPositionAndLookPacket(id, new Vec(x, y, z), Vec.ZERO, 0f, 0f, 0x08 | 0x10)));
+        request(Input.POSITION, (int) Math.round(x * 1000), (int) Math.round(y * 1000), (int) Math.round(z * 1000), 0, 0, 0);
+    }
+
+    private void kick(Component reason) {
+        if (closed || !ctx.channel().isActive()) return;
+        byte[] packet = body(new DisconnectPacket(reason));
+        ByteBuf out = ctx.alloc().directBuffer(packet.length + 8);
+        writer().raw(packet, out);
+        ctx.writeAndFlush(out).addListener(ChannelFutureListener.CLOSE);
+        close(); // stop updating; the channel closes once the reason is out
+    }
+
+    /** Handle what the decoder parked: a copy is taken first, so re-fed packets may park new entries meanwhile. */
+    private void drainCold() {
+        ColdMailbox mb = decoder.mailbox();
+        byte[] entries = Arrays.copyOf(mb.array(), mb.used());
+        mb.clear();
+        for (int at = 0; at + 8 <= entries.length && !closed; ) {
+            int len = intAt(entries, at), id = intAt(entries, at + 4), start = at + 8;
+            at = start + len;
+            try {
+                if (id < 0) inflate(entries, start, len, ~id);
+                else cold(id, entries, start, len);
+            } catch (RuntimeException | DataFormatException e) {
+                kick(Component.translatable("disconnect.packetError"));
+            }
+        }
+    }
+
+    private static int intAt(byte[] b, int at) {
+        return (b[at] & 0xFF) << 24 | (b[at + 1] & 0xFF) << 16 | (b[at + 2] & 0xFF) << 8 | b[at + 3] & 0xFF;
+    }
+
+    /** A compressed frame: inflate it, then handle it as a chat or command packet or decode it like any other. */
+    private void inflate(byte[] b, int start, int len, int dataLength) throws DataFormatException {
+        if (dataLength < server.compressionThreshold()) throw new IllegalArgumentException("badly compressed packet");
+        if (inflater == null) inflater = new Inflater();
+        inflater.reset();
+        inflater.setInput(b, start, len);
+        byte[] data = new byte[dataLength];
+        int n = 0;
+        while (n < dataLength && !inflater.finished()) {
+            int got = inflater.inflate(data, n, dataLength - n);
+            if (got == 0 && (inflater.needsInput() || inflater.needsDictionary())) break;
+            n += got;
+        }
+        if (n != dataLength) throw new IllegalArgumentException("bad compressed length");
+        ByteBuf packet = Unpooled.wrappedBuffer(data);
+        int id = VarInts.read(packet);
+        if (id == Protocol.CHAT || id == Protocol.COMMAND || id == Protocol.SIGNED_COMMAND) {
+            cold(id, data, packet.readerIndex(), packet.readableBytes());
+        } else {
+            feed(packet.readerIndex(0));
+        }
+    }
+
+    /** Decode an inflated packet, retrying shortly while the region's ingress ring pushes back. */
+    private void feed(ByteBuf packet) {
+        if (closed) return;
+        int mark = packet.readerIndex();
+        if (!decoder.packet(packet)) {
+            packet.readerIndex(mark);
+            ctx.executor().schedule(() -> feed(packet), 5, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private void cold(int id, byte[] b, int start, int len) {
+        NetworkBuffer nb = NetworkBuffer.wrap(b, start, start + len);
+        if (id == Protocol.CHAT) {
+            chat(nb.read(ClientChatMessagePacket.SERIALIZER).message());
+        } else if (id == Protocol.COMMAND) {
+            command(nb.read(ClientCommandChatPacket.SERIALIZER).message());
+        } else if (id == Protocol.SIGNED_COMMAND) {
+            command(nb.read(ClientSignedCommandChatPacket.SERIALIZER).message());
+        }
+    }
+
+    /** {@code StringUtil.isAllowedChatCharacter} over the whole message, and vanilla's 256-character limit. */
+    private static boolean legal(String message) {
+        if (message.length() > 256) return false;
+        for (int i = 0; i < message.length(); i++) {
+            char c = message.charAt(i);
+            if (c == '\u00a7' || c < ' ' || c == 127) return false;
+        }
+        return true;
+    }
+
+    /** Chat: everyone sees {@code <name> message} (chat type {@code minecraft:chat}), and the console logs it. */
+    private void chat(String message) {
+        if (!legal(message)) {
+            kick(Component.translatable("multiplayer.disconnect.illegal_characters"));
+            return;
+        }
+        System.out.println("<" + name + "> " + message);
+        byte[] packet = body(new DisguisedChatPacket(Component.text(message), Vanilla.CHAT_TYPE + 1,
+                Component.text(name), null));
+        for (PlaySession p : Commands.all(players)) {
+            if (p == this) sendRaw(packet);
+            else sendTo(p, packet);
+        }
+    }
+
+    private void command(String line) {
+        if (!legal(line)) {
+            kick(Component.translatable("multiplayer.disconnect.illegal_characters"));
+            return;
+        }
+        System.out.println(name + " issued server command: /" + line);
+        Commands.execute(this, line);
     }
 
     /** This player joins every tab list, and every online player joins this one's (its own entry included). */

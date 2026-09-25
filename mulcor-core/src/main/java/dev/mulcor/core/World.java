@@ -47,6 +47,9 @@ public final class World implements AutoCloseable {
      * Written only by the owning region.
      */
     public final int[] presence, swings;
+    /** Network players' game modes (vanilla {@code GameType} ids), per entity id. Written only by the owning region. */
+    public final int[] gameMode;
+    public static final int SURVIVAL = 0, CREATIVE = 1, ADVENTURE = 2, SPECTATOR = 3;
     /** Day time minus game time (the epoch): {@code /time set} moves it. Cold: written by commands. */
     public volatile long dayTimeOffset;
     public final Partition partition;
@@ -81,6 +84,7 @@ public final class World implements AutoCloseable {
         this.heldSlot = new int[cfg.maxEntities()];
         this.presence = new int[cfg.maxEntities()];
         this.swings = new int[cfg.maxEntities()];
+        this.gameMode = new int[cfg.maxEntities()];
         int numChests = cellsX * cellsZ * cfg.chestsPerCell();
         this.chests = new OffHeapInventory(memory, numChests, CHEST_SLOTS);
         this.chestX = new int[numChests];
@@ -95,6 +99,11 @@ public final class World implements AutoCloseable {
         for (int r = 0; r < regions.length; r++) {
             regions[r] = new Region(r, this, partition.isActive(r));
         }
+    }
+
+    /** {@code Abilities.mayfly} of a game mode ({@code GameType.updatePlayerAbilities}). */
+    public static boolean mayFly(int gameMode) {
+        return gameMode == CREATIVE || gameMode == SPECTATOR;
     }
 
     /** Light the whole world, then hand light over to its own thread. */

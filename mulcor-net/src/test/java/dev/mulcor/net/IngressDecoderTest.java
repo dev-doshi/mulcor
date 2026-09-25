@@ -31,7 +31,7 @@ class IngressDecoderTest {
                     Packets.click(2, 0, 0, ClickType.QUICK_MOVE), Packets.cold(), Packets.cancelDig(1, 2, 3));
             assertEquals(IngressDecoder.Result.DRAINED, dec.decode(buf));
             assertEquals(List.of(
-                    new Rec(Input.DIG, 77, 10, 5, -20, 0, 0, 0),
+                    new Rec(Input.DIG, 77, 10, 5, -20, 1, 0, 0),
                     new Rec(Input.PLACE, 77, 4, 64, 4, Input.HELD_ITEM, 6, 500 | 500 << 10 | 500 << 20), // B = EAST + 1; centre click
                     new Rec(Input.POSITION, 77, 12250, 70500, -3125, Input.ON_GROUND, 0, 0),
                     new Rec(Input.CHEST, 77, 0, 0, 0, 4, 7, 64),
@@ -89,8 +89,8 @@ class IngressDecoderTest {
         try {
             Packets.write(buf, Packets.dig(-33554432, -2048, 33554431), Packets.dig(0, 2047, -1));
             dec.decode(buf);
-            assertEquals(new Rec(Input.DIG, 1, -33554432, -2048, 33554431, 0, 0, 0), sink.records.get(0));
-            assertEquals(new Rec(Input.DIG, 1, 0, 2047, -1, 0, 0, 0), sink.records.get(1));
+            assertEquals(new Rec(Input.DIG, 1, -33554432, -2048, 33554431, 1, 0, 0), sink.records.get(0));
+            assertEquals(new Rec(Input.DIG, 1, 0, 2047, -1, 1, 0, 0), sink.records.get(1));
         } finally {
             buf.release();
         }

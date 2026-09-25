@@ -36,6 +36,11 @@ final class Packets {
                 new ClientPlayerActionPacket(ClientPlayerActionPacket.Status.STARTED_DIGGING, new Vec(x, y, z), BlockFace.TOP, 7));
     }
 
+    static byte[] finishDig(int x, int y, int z) {
+        return frame(Protocol.DIG, ClientPlayerActionPacket.SERIALIZER,
+                new ClientPlayerActionPacket(ClientPlayerActionPacket.Status.FINISHED_DIGGING, new Vec(x, y, z), BlockFace.TOP, 8));
+    }
+
     static byte[] cancelDig(int x, int y, int z) {
         return frame(Protocol.DIG, ClientPlayerActionPacket.SERIALIZER,
                 new ClientPlayerActionPacket(ClientPlayerActionPacket.Status.CANCELLED_DIGGING, new Vec(x, y, z), BlockFace.TOP, 8));

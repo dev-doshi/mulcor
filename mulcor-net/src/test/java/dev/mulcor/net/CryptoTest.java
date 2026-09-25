@@ -89,6 +89,6 @@ class CryptoTest {
     @Test
     void onlineModeRequiresEncryption() {
         assertThrows(IllegalArgumentException.class, () -> new ServerContext(null, null, 0, 0, 2, 0, 1, 1, 1, 1, null,
-                null, null, (n, h) -> null, null));
+                null, null, (n, h) -> null, null, 0));
     }
 }

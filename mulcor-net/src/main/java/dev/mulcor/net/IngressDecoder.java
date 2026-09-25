@@ -33,8 +33,10 @@ public final class IngressDecoder {
     private long hot, cold, frames;
     // Read by the connection's PlaySession on the same event loop: last reported position and the newest
     // block-action sequence number the client is waiting to have acknowledged.
-    private int lastX1000, lastZ1000, lastSequence = -1;
+    private int lastX1000, lastY1000, lastZ1000, lastSequence = -1;
     private boolean hasPosition;
+    /** A server teleport the client has not confirmed yet (-1: none); its movement is ignored until it does. */
+    private int awaitTeleport = -1;
 
     /**
      * @param compression if true, frames carry the post-compression-threshold header (VarInt dataLength). Frames
@@ -49,6 +51,8 @@ public final class IngressDecoder {
     }
 
     public void entity(int entity) { this.entity = entity; }
+    /** The server sent teleport {@code id}: like vanilla, ignore movement until the client confirms it. */
+    void expectTeleport(int id) { awaitTeleport = id; }
     public long hotPackets() { return hot; }
     public long coldPackets() { return cold; }
     public long frames() { return frames; }
@@ -56,6 +60,7 @@ public final class IngressDecoder {
     ColdMailbox mailbox() { return mailbox; }
     public boolean hasPosition() { return hasPosition; }
     public int lastX1000() { return lastX1000; }
+    public int lastY1000() { return lastY1000; }
     public int lastZ1000() { return lastZ1000; }
     /** Highest block-action sequence seen, or -1. */
     public int lastSequence() { return lastSequence; }
@@ -93,10 +98,22 @@ public final class IngressDecoder {
 
     /** Returns false only when the sink pushed back. */
     private boolean frame(ByteBuf in) {
-        if (compression && VarInts.read(in) != 0) {
-            cold++; // compressed: never a hot packet (all hot packets are far below any threshold)
-            return true;
+        if (compression) {
+            int dataLength = VarInts.read(in);
+            if (dataLength != 0) {
+                // Compressed (at or above the threshold): parked for the session, which inflates it off the hot path
+                // and feeds it back through packet(). Entry id ~dataLength (negative) marks it.
+                if (dataLength < 0 || dataLength > MAX_FRAME) throw new IllegalArgumentException("dataLength");
+                if (!mailbox.offer(~dataLength, in)) return false;
+                cold++;
+                return true;
+            }
         }
+        return packet(in);
+    }
+
+    /** One uncompressed packet (id, then payload) bounded by {@code in}'s writer index; false on backpressure. */
+    boolean packet(ByteBuf in) {
         int id = VarInts.read(in);
         if (id == Protocol.DIG) {
             int status = VarInts.read(in);
@@ -104,7 +121,7 @@ public final class IngressDecoder {
             in.readByte(); // face
             lastSequence = Math.max(lastSequence, VarInts.read(in));
             if (status != 0 && status != 2) { cold++; return true; } // only start/finish digging break blocks
-            return emit(Input.DIG, VarInts.blockX(pos), VarInts.blockY(pos), VarInts.blockZ(pos), 0, 0, 0);
+            return emit(Input.DIG, VarInts.blockX(pos), VarInts.blockY(pos), VarInts.blockZ(pos), status + 1, 0, 0);
         }
         if (id == Protocol.PLACE) {
             VarInts.read(in); // hand
@@ -134,6 +151,16 @@ public final class IngressDecoder {
             int count = VarInts.read(in);
             int item = count > 0 ? VarInts.read(in) : 0;
             return emit(Input.CREATIVE_SLOT, 0, 0, 0, slot, item, count);
+        }
+        if (id == Protocol.TELEPORT_CONFIRM) {
+            if (VarInts.read(in) == awaitTeleport) awaitTeleport = -1;
+            cold++;
+            return true;
+        }
+        if (awaitTeleport >= 0 && (id == Protocol.POSITION || id == Protocol.POSITION_ROTATION || id == Protocol.ROTATION
+                || id == Protocol.GROUND)) {
+            cold++; // moves from before the client saw the teleport
+            return true;
         }
         if (id == Protocol.POSITION) {
             double x = in.readDouble(), y = in.readDouble(), z = in.readDouble();
@@ -209,6 +236,7 @@ public final class IngressDecoder {
         if (!emit(Input.POSITION, x1000, (int) Math.round(y * 1000), z1000, flags,
                 Float.floatToRawIntBits(yaw), Float.floatToRawIntBits(pitch))) return false;
         lastX1000 = x1000;
+        lastY1000 = (int) Math.round(y * 1000);
         lastZ1000 = z1000;
         hasPosition = true;
         return true;

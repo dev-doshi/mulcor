@@ -13,7 +13,10 @@ public final class Input {
 
     /** A,B = walk direction x,z (any scale; 0,0 = stop). The mob faces it and walks at its movement speed. */
     public static final int MOVE = 1;
-    /** X,Y,Z = block to break. */
+    /**
+     * X,Y,Z = block to break. A = 0: break a mineable block now (headless clients); else the
+     * {@code ServerboundPlayerActionPacket} status + 1 (1 start, 2 abort, 3 stop destroying), judged by the game mode.
+     */
     public static final int DIG = 2;
     /**
      * X,Y,Z = position; A = block/item from the player's inventory, or {@link #HELD_ITEM} for the item in the
@@ -64,6 +67,8 @@ public final class Input {
     public static final int SETTINGS = 17;
     /** {@code ServerboundPlayerAbilitiesPacket}: A = flags (2 = flying). */
     public static final int ABILITIES = 18;
+    /** Game mode change ({@code /gamemode}): A = vanilla {@code GameType} id (0 survival, 1 creative, 2 adventure, 3 spectator). */
+    public static final int GAME_MODE = 19;
 
     /** POSITION flag: the record carries only rotation/ground state; X,Y,Z are ignored. */
     public static final int NO_POSITION = 1;

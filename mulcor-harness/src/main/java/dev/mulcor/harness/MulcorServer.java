@@ -22,7 +22,8 @@ import java.util.concurrent.locks.LockSupport;
  * Options: {@code --port} (25565), {@code --chunks} world edge in chunks (32), {@code --bots} simulated bots (0),
  * {@code --tps} (20), {@code --view} view distance (8), {@code --io} Netty threads (2), {@code --workers},
  * {@code --online true} (encryption + Mojang session authentication, like vanilla {@code online-mode=true}),
- * {@code --encrypt true} (offline mode but with protocol encryption).
+ * {@code --encrypt true} (offline mode but with protocol encryption), {@code --gamemode} the mode players join in
+ * ({@code creative} (default), {@code survival}, {@code adventure} or {@code spectator}).
  */
 public final class MulcorServer {
     private MulcorServer() {}
@@ -38,6 +39,9 @@ public final class MulcorServer {
         int io = Integer.parseInt(opt.getOrDefault("io", "2"));
         int workers = Integer.parseInt(opt.getOrDefault("workers", String.valueOf(WorkerTopology.workers())));
         boolean onlineMode = Boolean.parseBoolean(opt.getOrDefault("online", "false"));
+        int gameMode = java.util.List.of("survival", "creative", "adventure", "spectator")
+                .indexOf(opt.getOrDefault("gamemode", "creative").toLowerCase(java.util.Locale.ROOT));
+        if (gameMode < 0) throw new IllegalArgumentException("--gamemode must be survival, creative, adventure or spectator");
         boolean encrypt = onlineMode || Boolean.parseBoolean(opt.getOrDefault("encrypt", "false"));
 
         EngineConfig cfg = EngineConfig.builder().world(chunks, chunks).height(0, 4).cellChunks(4).workers(workers)
@@ -48,7 +52,7 @@ public final class MulcorServer {
             for (int i = 0; i < bots; i++) {
                 engine.spawnBot(rnd.nextInt(engine.world.sizeX()), rnd.nextInt(engine.world.sizeZ()), roles[i % roles.length]);
             }
-            ServerContext ctx = ServerContext.of(engine).withViewDistance(view);
+            ServerContext ctx = ServerContext.of(engine).withViewDistance(view).withGameMode(gameMode);
             if (onlineMode) ctx = ctx.withOnlineMode(Crypto.generate(), Authenticator.mojang());
             else if (encrypt) ctx = ctx.withEncryption(Crypto.generate());
             try (NetServer net = NetServer.vanilla(port, io, ctx)) {

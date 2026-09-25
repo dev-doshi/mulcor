@@ -504,6 +504,7 @@ public final class Region {
             world.heldSlot[eid] = 0;
             world.presence[eid] = Presence.DEFAULT;
             world.swings[eid] = 0;
+            world.gameMode[eid] = World.SURVIVAL;
         }
         world.joins.complete(ticket, eid);
     }
@@ -670,11 +671,11 @@ public final class Region {
         int a = seg.get(I, off + Input.A);
         switch (seg.get(I, off + Input.KIND)) {
             case Input.MOVE -> Sim.walk(table, slot, a, seg.get(I, off + Input.B));
-            case Input.DIG -> Sim.dig(this, eid, x, y, z);
+            case Input.DIG -> Sim.dig(this, eid, x, y, z, a);
             case Input.PLACE -> Sim.useItemOn(this, eid, slot, x, y, z, a, seg.get(I, off + Input.B), seg.get(I, off + Input.C));
             case Input.CREATIVE_SLOT -> {
-                int hotbarSlot = a - 36;
-                if (hotbarSlot >= 0 && hotbarSlot < 9) {
+                int hotbarSlot = a - 36; // vanilla accepts creative inventory actions only from creative players
+                if (hotbarSlot >= 0 && hotbarSlot < 9 && world.gameMode[eid] == World.CREATIVE) {
                     world.hotbar[eid * 9 + hotbarSlot] = seg.get(I, off + Input.C) > 0 ? seg.get(I, off + Input.B) : 0;
                 }
             }
@@ -691,7 +692,14 @@ public final class Region {
                 else if (a == Presence.STOP_SPRINTING) presence(slot, eid, Presence.withSprint(world.presence[eid], false));
             }
             case Input.SETTINGS -> world.presence[eid] = Presence.withSettings(world.presence[eid], a, seg.get(I, off + Input.B));
-            case Input.ABILITIES -> presence(slot, eid, Presence.withFlying(world.presence[eid], (a & 2) != 0));
+            case Input.ABILITIES -> presence(slot, eid, Presence.withFlying(world.presence[eid],
+                    (a & 2) != 0 && World.mayFly(world.gameMode[eid])));
+            case Input.GAME_MODE -> {
+                if (a >= World.SURVIVAL && a <= World.SPECTATOR) {
+                    world.gameMode[eid] = a;
+                    if (!World.mayFly(a)) presence(slot, eid, Presence.withFlying(world.presence[eid], false));
+                }
+            }
             case Input.CHEST -> {
                 int count = seg.get(I, off + Input.C);
                 if (count > 0) Sim.takeFromChest(this, eid, a, seg.get(I, off + Input.B), count);

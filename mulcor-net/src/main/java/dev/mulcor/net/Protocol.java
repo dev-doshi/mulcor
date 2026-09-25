@@ -5,6 +5,7 @@ import net.minestom.server.network.packet.PacketVanilla;
 import net.minestom.server.network.packet.client.common.ClientSettingsPacket;
 import net.minestom.server.network.packet.client.play.ClientAnimationPacket;
 import net.minestom.server.network.packet.client.play.ClientChatMessagePacket;
+import net.minestom.server.network.packet.client.play.ClientTeleportConfirmPacket;
 import net.minestom.server.network.packet.client.play.ClientClickWindowPacket;
 import net.minestom.server.network.packet.client.play.ClientCommandChatPacket;
 import net.minestom.server.network.packet.client.play.ClientEntityActionPacket;
@@ -58,6 +59,7 @@ public final class Protocol {
     public static final int PLAYER_COMMAND = id(ClientEntityActionPacket.class);
     public static final int SETTINGS = id(ClientSettingsPacket.class);
     public static final int ABILITIES = id(ClientPlayerAbilitiesPacket.class);
+    public static final int TELEPORT_CONFIRM = id(ClientTeleportConfirmPacket.class);
     // Cold play packets the decoder hands to the session's mailbox (see ColdMailbox).
     public static final int CHAT = id(ClientChatMessagePacket.class);
     public static final int COMMAND = id(ClientCommandChatPacket.class);

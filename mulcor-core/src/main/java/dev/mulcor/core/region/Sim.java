@@ -59,7 +59,7 @@ final class Sim {
                     int y = (int) Math.floor(t.y(s)) - 1;
                     int st = r.world.blocks.getShared(x, y, z);
                     if (Blocks.isMineable(st)) {
-                        dig(r, eid, x, y, z);
+                        dig(r, eid, x, y, z, 0); // bots: the legacy item flow
                     } else if (st == Blocks.AIR) {
                         int item = OffHeapInventory.item(r.world.players.get(eid, 0)) != 0
                                 ? OffHeapInventory.item(r.world.players.get(eid, 0)) : Blocks.DIRT;
@@ -125,26 +125,61 @@ final class Sim {
     // ---- block interaction -------------------------------------------------------------------------------------
 
     /** Entity {@code eid} (owned by {@code r}) breaks a block and receives it as an item. */
-    static void dig(Region r, int eid, int x, int y, int z) {
+    /** Break rules ({@code Msg.BLOCK_BREAK} D): what a dig may break, decided where the player is. */
+    static final int BREAK_LEGACY = 0, BREAK_CREATIVE = 1, BREAK_INSTANT = 2, BREAK_SURVIVAL = 3;
+
+    /**
+     * DIG input: {@code action} 0 breaks a mineable block at once (headless clients), else it is the
+     * {@code ServerboundPlayerActionPacket} status + 1 and the player's game mode decides
+     * ({@code ServerPlayerGameMode.handleBlockBreakAction}): creative breaks on START_DESTROY_BLOCK, survival on
+     * STOP_DESTROY_BLOCK or at once when the block's destroy speed is 0; adventure and spectator break nothing.
+     * Survival digging time is not validated (the client's timing is trusted).
+     */
+    static void dig(Region r, int eid, int x, int y, int z, int action) {
+        int rule;
+        if (action == 0) {
+            rule = BREAK_LEGACY;
+        } else {
+            int status = action - 1, mode = r.world.gameMode[eid];
+            if (mode == World.CREATIVE) rule = status == 0 ? BREAK_CREATIVE : -1;
+            else if (mode == World.SURVIVAL) rule = status == 0 ? BREAK_INSTANT : status == 2 ? BREAK_SURVIVAL : -1;
+            else rule = -1;
+            if (rule < 0) return;
+        }
+        if (!r.world.blocks.inBounds(x, y, z)) return;
         int owner = r.world.ownerOfBlock(x, z);
         if (owner == r.id) {
-            breakOwned(r, eid, x, y, z);
+            breakOwned(r, eid, x, y, z, rule);
         } else {
             MemorySegment m = r.begin(Msg.BLOCK_BREAK);
             m.set(I, Msg.A, x);
             m.set(I, Msg.B, y);
             m.set(I, Msg.C, z);
+            m.set(I, Msg.D, rule);
             m.set(I, Msg.E, eid);
             r.send(owner);
         }
     }
 
-    private static void breakOwned(Region r, int eid, int x, int y, int z) {
+    /**
+     * {@code ServerPlayerGameMode.destroyBlock}: {@code level.removeBlock(pos, false)} leaves the block's fluid (a
+     * waterlogged block becomes water). Air and liquid blocks cannot be broken, unbreakable blocks (destroy time -1)
+     * only in creative. Mined blocks go to the player's inventory (no item entities yet); creative mining drops nothing.
+     */
+    static void breakOwned(Region r, int eid, int x, int y, int z, int rule) {
         BlockStorage b = r.world.blocks;
         int st = b.get(x, y, z);
-        if (!Blocks.isMineable(st)) return; // already gone: whoever arrived first got it
-        Redstone.removeBlock(r, x, y, z); // ServerPlayerGameMode.destroyBlock → level.removeBlock(pos, false)
-        deliver(r, eid, st, 1);
+        if (rule == BREAK_LEGACY) {
+            if (!Blocks.isMineable(st)) return; // already gone: whoever arrived first got it
+            Redstone.removeBlock(r, x, y, z);
+            deliver(r, eid, st, 1);
+            return;
+        }
+        if (dev.mulcor.registry.BlockData.isAir(st) || FluidStates.isLiquidBlock(st)) return;
+        float hardness = dev.mulcor.registry.BlockData.hardness(dev.mulcor.registry.BlockData.block(st));
+        if (rule != BREAK_CREATIVE && (hardness < 0 || rule == BREAK_INSTANT && hardness != 0)) return;
+        Redstone.setBlock(r, x, y, z, FluidStates.legacyBlock(FluidStates.fluid(st)), Redstone.UPDATE_ALL);
+        if (rule != BREAK_CREATIVE && Blocks.isMineable(st)) deliver(r, eid, st, 1);
     }
 
     /** Entity {@code eid} (owned by {@code r}) places one {@code item} from its inventory. */
@@ -366,7 +401,7 @@ final class Sim {
         int a = seg.get(I, off + Msg.A), b = seg.get(I, off + Msg.B), c = seg.get(I, off + Msg.C);
         int d = seg.get(I, off + Msg.D);
         switch (kind) {
-            case Msg.BLOCK_BREAK -> breakOwned(r, seg.get(I, off + Msg.E), a, b, c);
+            case Msg.BLOCK_BREAK -> breakOwned(r, seg.get(I, off + Msg.E), a, b, c, d);
             case Msg.BLOCK_PLACE -> placeOwned(r, seg.get(I, off + Msg.E), a, b, c, d);
             case Msg.EXPLOSION -> Explosion.receive(r, seg, off);
             case Msg.EXPLOSION_BLOCKS -> Explosion.receiveBlocks(r, seg, off);
