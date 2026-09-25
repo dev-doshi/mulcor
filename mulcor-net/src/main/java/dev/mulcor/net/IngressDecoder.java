@@ -210,7 +210,7 @@ public final class IngressDecoder {
             int hand = VarInts.read(in);
             return emit(Input.SETTINGS, 0, 0, 0, skin, hand, 0);
         }
-        if (id == Protocol.CHAT || id == Protocol.COMMAND || id == Protocol.SIGNED_COMMAND) {
+        if (id == Protocol.CHAT || id == Protocol.COMMAND || id == Protocol.SIGNED_COMMAND || id == Protocol.CLIENT_STATUS) {
             return mailbox.offer(id, in);
         }
         if (id == Protocol.CLICK_WINDOW) {

@@ -90,13 +90,13 @@ public final class Presence {
     }
 
     /** {@code isInWater}: the player's box (0.6 wide, 1.8 high) touches water, sampled at its feet and middle. */
-    private static boolean inWater(Region r, double x, double y, double z) {
+    static boolean inWater(Region r, double x, double y, double z) {
         int bx = (int) Math.floor(x), bz = (int) Math.floor(z);
         return isWater(r, bx, (int) Math.floor(y), bz) || isWater(r, bx, (int) Math.floor(y + 0.9), bz);
     }
 
     /** {@code isEyeInFluid(WATER)}: the eye is below the water surface of its block ({@code FluidState.getHeight}). */
-    private static boolean eyeInWater(Region r, double x, double eyeY, double z) {
+    static boolean eyeInWater(Region r, double x, double eyeY, double z) {
         int bx = (int) Math.floor(x), by = (int) Math.floor(eyeY), bz = (int) Math.floor(z);
         int fs = fluidAt(r, bx, by, bz);
         if (fs == 0 || FluidStates.group(fs) != FluidStates.WATER_GROUP) return false;

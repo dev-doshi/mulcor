@@ -247,7 +247,7 @@ public final class Region {
         invStamp++;
     }
 
-    /** {@code LivingEntity.isAlive} of a player (health is not modelled yet, so players are always alive). */
+    /** {@code LivingEntity.isAlive} of a player. */
     boolean alive(int eid) {
         return world.health[eid] > 0;
     }
@@ -422,6 +422,7 @@ public final class Region {
         Physics.pushAll(this);           // entity pushing (momentum transfer), from start-of-tick positions
         Sim.simulate(this);              // entities: AI, physics, TNT, falling blocks, items
         ItemEntities.pickup(this);       // Player.touch → ItemEntity.playerTouch
+        Survival.tick(this);             // hunger, regeneration, starvation, invulnerability countdown
         Menus.tickPlayers(this);         // ServerPlayer.tick: containerMenu.stillValid
         Pistons.tickBlockEntities(this); // Level.tickBlockEntities: moving pistons
         Physics.publishSnapshot(this);
@@ -588,7 +589,7 @@ public final class Region {
             world.window[eid] = 0;
             world.quickcraft[eid] = 0;
             world.clicks[eid] = 0;
-            world.health[eid] = 20.0F;
+            Survival.reset(world, eid);
             world.presence[eid] = Presence.DEFAULT;
             world.swings[eid] = 0;
             world.gameMode[eid] = World.SURVIVAL;
@@ -756,7 +757,12 @@ public final class Region {
         int slot = dir.slot(eid);
         int x = seg.get(I, off + Input.X), y = seg.get(I, off + Input.Y), z = seg.get(I, off + Input.Z);
         int a = seg.get(I, off + Input.A);
-        switch (seg.get(I, off + Input.KIND)) {
+        int kind = seg.get(I, off + Input.KIND);
+        if (world.health[eid] <= 0 && table.type(slot) == Entities.PLAYER && kind != Input.RESPAWN
+                && kind != Input.LEAVE && kind != Input.SETTINGS && kind != Input.CLOSE_WINDOW) {
+            return; // a dead player only sees the death screen
+        }
+        switch (kind) {
             case Input.MOVE -> Sim.walk(table, slot, a, seg.get(I, off + Input.B));
             case Input.DIG -> Sim.dig(this, eid, x, y, z, a);
             case Input.PLACE -> Sim.useItemOn(this, eid, slot, x, y, z, a, seg.get(I, off + Input.B), seg.get(I, off + Input.C));
@@ -808,6 +814,8 @@ public final class Region {
             }
             case Input.IGNITE -> Sim.spawnTnt(this, x + 0.5, y, z + 0.5, Math.max(1, a));
             case Input.POSITION -> {
+                double ox = table.x(slot), oy = table.y(slot), oz = table.z(slot);
+                boolean wasOnGround = (table.flags(slot) & Entities.FLAG_ON_GROUND) != 0;
                 if ((a & Input.NO_POSITION) == 0) {
                     table.setPos(slot,
                             Math.clamp(x / 1000.0, 0.5, world.sizeX() - 0.5),
@@ -821,8 +829,10 @@ public final class Region {
                     }
                     table.setFlags(slot, (a & Input.ON_GROUND) != 0 ? Entities.FLAG_ON_GROUND : 0);
                     if ((a & Input.NO_POSITION) == 0) presence(slot, eid, world.presence[eid]);
+                    Survival.onMove(this, slot, eid, ox, oy, oz, wasOnGround, (a & Input.ON_GROUND) != 0);
                 }
             }
+            case Input.RESPAWN -> Survival.respawn(this, slot, eid, x / 1000.0, y / 1000.0, z / 1000.0);
             case Input.LEAVE -> {
                 if (table.type(slot) == Entities.PLAYER) {
                     droppedItems += world.players.clear(eid);

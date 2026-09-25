@@ -83,6 +83,8 @@ public final class Input {
     public static final int DROP = 22;
     /** Swap the selected item with the offhand (player action 6). */
     public static final int SWAP_HANDS = 23;
+    /** Respawn a dead player: X,Y,Z = spawn position × 1000. */
+    public static final int RESPAWN = 24;
 
     /** POSITION flag: the record carries only rotation/ground state; X,Y,Z are ignored. */
     public static final int NO_POSITION = 1;

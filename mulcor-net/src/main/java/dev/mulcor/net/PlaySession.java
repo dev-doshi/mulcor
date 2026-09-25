@@ -40,6 +40,9 @@ import net.minestom.server.network.packet.client.play.ClientSignedCommandChatPac
 import net.minestom.server.network.packet.server.ServerPacket;
 import net.minestom.server.network.packet.server.common.DisconnectPacket;
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket;
+import net.minestom.server.network.packet.server.play.DeathCombatEventPacket;
+import net.minestom.server.network.packet.server.play.RespawnPacket;
+import net.minestom.server.network.packet.server.play.data.PlayerSpawnInfo;
 import net.minestom.server.network.packet.server.play.DisguisedChatPacket;
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket;
 import net.minestom.server.network.packet.server.play.PlayerPositionAndLookPacket;
@@ -138,7 +141,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
     private final long[] invNow = new long[World.INV_PUB], invSent = new long[World.INV_PUB];
     /** One menu's slots in menu order, for Window Items. */
     private final long[] menuSlots = new long[MENU_SLOTS];
-    private int invSeqSeen = -1, windowSent, clicksSent, closesSeen, stateId;
+    private int invSeqSeen = -1, windowSent, clicksSent, closesSeen, stateId, deathsSeen;
     private Inflater inflater;
     private long lastKeepAlive;
     private long chunksSent;
@@ -361,7 +364,52 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
             }
             if (carried != invSent[World.INV]) w.setCursor(carried, out);
         }
+        long health = invNow[World.INV + 2], survival = invNow[World.INV + 3];
+        if (first || health != invSent[World.INV + 2] || survival != invSent[World.INV + 3]) {
+            w.updateHealth(Float.intBitsToFloat((int) health), (int) (health >>> 32), Float.intBitsToFloat((int) survival), out);
+        }
+        int deaths = (int) (survival >>> 32) & 0xFFFFFF;
+        if (!first && deaths != deathsSeen) died((int) (survival >>> 56));
+        deathsSeen = deaths;
         System.arraycopy(invNow, 0, invSent, 0, World.INV_PUB);
+    }
+
+    /**
+     * {@code ServerPlayer.die}: the death screen ({@code ClientboundPlayerCombatKillPacket}) for this player and the
+     * death message for everyone. Rare, so it may allocate.
+     */
+    private void died(int cause) {
+        String key = switch (cause) {
+            case World.CAUSE_FALL -> "death.fell.accident.generic";
+            case World.CAUSE_STARVE -> "death.attack.starve";
+            default -> "death.attack.generic";
+        };
+        Component message = Component.translatable(key, Component.text(name));
+        System.out.println(name + " died");
+        sendRaw(body(new DeathCombatEventPacket(entity, message)));
+        byte[] packet = body(new SystemChatPacket(message, false));
+        for (PlaySession p : Commands.all(players)) {
+            if (p == this) sendRaw(packet);
+            else sendTo(p, packet);
+        }
+    }
+
+    /**
+     * {@code ServerboundClientCommandPacket} PERFORM_RESPAWN ({@code PlayerList.respawn}): the respawn packet, the
+     * abilities, a teleport to the world spawn's surface, then the region revives the player there. The whole
+     * inventory and health are sent again.
+     */
+    private void respawn() {
+        int x = (int) Math.floor(spawnX), z = (int) Math.floor(spawnZ);
+        double y = server.engine().surfaceAt(x, z);
+        sendRaw(body(new RespawnPacket(new PlayerSpawnInfo(Vanilla.OVERWORLD_ID, Vanilla.WORLD, 0L,
+                GameMode.values()[gameMode], null, false, true, null, 0, 63), (byte) 0)));
+        sendRaw(body(abilities(gameMode)));
+        int id = ++teleportId;
+        decoder.expectTeleport(id);
+        sendRaw(body(new PlayerPositionAndLookPacket(id, new Vec(spawnX, y, spawnZ), Vec.ZERO, 0f, 0f, 0)));
+        request(Input.RESPAWN, (int) Math.round(spawnX * 1000), (int) Math.round(y * 1000), (int) Math.round(spawnZ * 1000), 0, 0, 0);
+        invSeqSeen = -1;
     }
 
     /**
@@ -607,6 +655,8 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
             command(nb.read(ClientCommandChatPacket.SERIALIZER).message());
         } else if (id == Protocol.SIGNED_COMMAND) {
             command(nb.read(ClientSignedCommandChatPacket.SERIALIZER).message());
+        } else if (id == Protocol.CLIENT_STATUS) {
+            if (nb.read(NetworkBuffer.VAR_INT) == 0) respawn(); // 0 PERFORM_RESPAWN, 1 REQUEST_STATS
         }
     }
 

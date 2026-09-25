@@ -55,8 +55,11 @@ public final class World implements AutoCloseable {
     /** Per-tick dedup stamps for {@code Region.invChanged}. */
     public final long[] invMarked;
     public static final int INV = 56;
-    /** Published inventory: {@link #INV} slots, the carried stack, then window | clicks << 32. */
-    public static final int INV_PUB = INV + 2;
+    /**
+     * Published inventory: {@link #INV} slots, the carried stack, window | clicks << 32, health bits | food << 32,
+     * then saturation bits | (deaths & 0xFFFFFF) << 32 | death cause << 56.
+     */
+    public static final int INV_PUB = INV + 4;
     /** Published copies of {@link #inv} (see {@code Region.publishInventories}), guarded by the seqlock {@link #invSeq}. */
     public final long[] invPub;
     public final int[] invSeq;
@@ -69,6 +72,16 @@ public final class World implements AutoCloseable {
     public final int[] gameMode;
     /** Network players' health ({@code LivingEntity.getHealth}), per entity id. Written only by the owning region. */
     public final float[] health;
+    /**
+     * Network players' survival state ({@code FoodData}, {@code LivingEntity} hurt cooldown, {@code Entity.fallDistance}),
+     * per entity id, the number of deaths (the session shows the death screen when it grows) and the cause of the last
+     * one ({@link #CAUSE_GENERIC}, ...). Written only by the owning region.
+     */
+    public final int[] food, foodTimer, invulnerableTime, deaths, deathCause;
+    /** Damage causes, for the death message. */
+    public static final int CAUSE_GENERIC = 0, CAUSE_FALL = 1, CAUSE_STARVE = 2;
+    public final float[] saturation, exhaustion, lastHurt;
+    public final double[] fallDistance;
     public static final int SURVIVAL = 0, CREATIVE = 1, ADVENTURE = 2, SPECTATOR = 3;
     /** Day time minus game time (the epoch): {@code /time set} moves it. Cold: written by commands. */
     public volatile long dayTimeOffset;
@@ -116,6 +129,15 @@ public final class World implements AutoCloseable {
         this.swings = new int[cfg.maxEntities()];
         this.gameMode = new int[cfg.maxEntities()];
         this.health = new float[cfg.maxEntities()];
+        this.food = new int[cfg.maxEntities()];
+        this.foodTimer = new int[cfg.maxEntities()];
+        this.invulnerableTime = new int[cfg.maxEntities()];
+        this.deaths = new int[cfg.maxEntities()];
+        this.deathCause = new int[cfg.maxEntities()];
+        this.saturation = new float[cfg.maxEntities()];
+        this.exhaustion = new float[cfg.maxEntities()];
+        this.lastHurt = new float[cfg.maxEntities()];
+        this.fallDistance = new double[cfg.maxEntities()];
         int numChests = cellsX * cellsZ * cfg.chestsPerCell();
         this.chests = new OffHeapInventory(memory, numChests, CHEST_SLOTS);
         this.chestX = new int[numChests];
@@ -143,6 +165,9 @@ public final class World implements AutoCloseable {
         System.arraycopy(inv, eid * INV, invPub, base, INV);
         invPub[base + INV] = carried[eid];
         invPub[base + INV + 1] = (window[eid] & 0xFFFFFFFFL) | (long) clicks[eid] << 32;
+        invPub[base + INV + 2] = (Float.floatToRawIntBits(health[eid]) & 0xFFFFFFFFL) | (long) food[eid] << 32;
+        invPub[base + INV + 3] = (Float.floatToRawIntBits(saturation[eid]) & 0xFFFFFFFFL) | ((long) deaths[eid] & 0xFFFFFF) << 32
+                | (long) deathCause[eid] << 56;
         SEQ.setRelease(invSeq, eid, s + 2);
     }
 

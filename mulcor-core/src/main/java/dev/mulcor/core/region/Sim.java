@@ -154,7 +154,10 @@ final class Sim {
         long tool = rule == BREAK_LEGACY ? Stacks.EMPTY : PlayerInv.selected(r, eid);
         if (rule == BREAK_SURVIVAL || rule == BREAK_INSTANT) {
             int st = r.world.blocks.getShared(x, y, z);
-            if (!dev.mulcor.registry.BlockData.isAir(st) && !FluidStates.isLiquidBlock(st)) mineBlock(r, eid, st);
+            if (!dev.mulcor.registry.BlockData.isAir(st) && !FluidStates.isLiquidBlock(st)) {
+                mineBlock(r, eid, st);
+                Survival.causeFoodExhaustion(r, eid, 0.005F); // Block.playerDestroy
+            }
         }
         int owner = r.world.ownerOfBlock(x, z);
         if (owner == r.id) {
