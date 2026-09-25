@@ -37,6 +37,7 @@ public final class IngressDecoder {
     private boolean hasPosition;
     /** A server teleport the client has not confirmed yet (-1: none); its movement is ignored until it does. */
     private int awaitTeleport = -1;
+    private int windowCloses;
 
     /**
      * @param compression if true, frames carry the post-compression-threshold header (VarInt dataLength). Frames
@@ -64,6 +65,8 @@ public final class IngressDecoder {
     public int lastZ1000() { return lastZ1000; }
     /** Highest block-action sequence seen, or -1. */
     public int lastSequence() { return lastSequence; }
+    /** Close Window packets decoded so far: a window the client closed itself needs no Close Window back. */
+    public int windowCloses() { return windowCloses; }
 
     /** Decode as many complete frames as possible, advancing {@code in}'s reader index past each consumed frame. */
     public Result decode(ByteBuf in) {
@@ -221,6 +224,7 @@ public final class IngressDecoder {
             return emit(Input.CLICK, container, 0, 0, slot, button, mode);
         }
         if (id == Protocol.CLOSE_WINDOW) {
+            windowCloses++;
             return emit(Input.CLOSE_WINDOW, VarInts.read(in), 0, 0, 0, 0, 0);
         }
         cold++;

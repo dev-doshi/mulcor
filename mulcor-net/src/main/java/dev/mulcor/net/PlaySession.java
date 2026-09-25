@@ -128,6 +128,17 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
     private volatile int gameMode;
     private int teleportId = 1; // the join teleport is 1
     private final double spawnX, spawnZ;
+
+    // ---- inventory ----------------------------------------------------------------------------------------------
+    /** Menu kinds and slot count as in {@code dev.mulcor.core.region.Menus}; the crafting menu's type id and title. */
+    private static final int MENU_CRAFTING = 1, MENU_SLOTS = 46, CRAFTING_MENU_TYPE = 12;
+    private static final int TABLE_GRID = 46, TABLE_RESULT = 55;
+    private static final byte[] CRAFTING_TITLE = Vanilla.component(Component.translatable("container.crafting"));
+    /** The published inventory as last read, and as the client last got it ({@link World#INV_PUB} longs each). */
+    private final long[] invNow = new long[World.INV_PUB], invSent = new long[World.INV_PUB];
+    /** One menu's slots in menu order, for Window Items. */
+    private final long[] menuSlots = new long[MENU_SLOTS];
+    private int invSeqSeen = -1, windowSent, clicksSent, closesSeen, stateId;
     private Inflater inflater;
     private long lastKeepAlive;
     private long chunksSent;
@@ -276,6 +287,7 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         if (ctx.channel().isWritable()) stream(out);
         forwardChanges(w, out);
         trackEntities(w, out);
+        syncInventory(w, out);
         if (--timeCountdown <= 0) sendTime(w, out);
         // Acknowledge one update late: by then the region has applied the action and the block updates it caused are
         // forwarded above, so the client ends its prediction with the server's answer already in hand.
@@ -294,6 +306,62 @@ public final class PlaySession extends ChannelInboundHandlerAdapter {
         } else {
             out.release();
         }
+    }
+
+    /** The published inventory index of menu slot {@code slot} ({@code Menus.invSlot}). */
+    private static int invSlot(int kind, int slot) {
+        if (kind == MENU_CRAFTING) {
+            if (slot == 0) return TABLE_RESULT;
+            if (slot <= 9) return TABLE_GRID + slot - 1;
+            return slot - 1;
+        }
+        return slot;
+    }
+
+    /** {@code AbstractContainerMenu.incrementStateId}. */
+    private int nextStateId() {
+        return stateId = stateId + 1 & 32767;
+    }
+
+    /**
+     * {@code AbstractContainerMenu.broadcastChanges} for this player's menu. When the region publishes a new
+     * inventory: a new window is opened (or a server-side close is sent), and the whole menu goes out after a window
+     * change or a click (the client predicted the click; the resend replaces its guess with the server's result, as
+     * vanilla does on a state id mismatch); otherwise only the changed slots and the carried stack go out.
+     */
+    private void syncInventory(PlayWriter w, ByteBuf out) {
+        int seq = world.inventorySeq(entity);
+        if (seq == invSeqSeen || (seq & 1) != 0) return;
+        if (world.readInventory(entity, invNow) != seq) return; // torn: retry next update
+        boolean first = invSeqSeen < 0;
+        invSeqSeen = seq;
+        long meta = invNow[World.INV + 1];
+        int window = (int) meta, clicks = (int) (meta >>> 32);
+        int kind = window >>> 8 & 0xFF, container = window & 0xFF;
+        boolean full = first || clicks != clicksSent;
+        if (window != windowSent) {
+            if (container != 0) {
+                w.openWindow(container, CRAFTING_MENU_TYPE, CRAFTING_TITLE, out);
+            } else if (decoder.windowCloses() == closesSeen) {
+                w.closeWindow(windowSent & 0xFF, out); // closed by the server, not by the client
+            }
+            windowSent = window;
+            full = true;
+        }
+        closesSeen = decoder.windowCloses();
+        clicksSent = clicks;
+        long carried = invNow[World.INV];
+        if (full) {
+            for (int m = 0; m < MENU_SLOTS; m++) menuSlots[m] = invNow[invSlot(kind, m)];
+            w.windowItems(container, nextStateId(), menuSlots, 0, MENU_SLOTS, carried, out);
+        } else {
+            for (int m = 0; m < MENU_SLOTS; m++) {
+                int i = invSlot(kind, m);
+                if (invNow[i] != invSent[i]) w.setSlot(container, nextStateId(), m, invNow[i], out);
+            }
+            if (carried != invSent[World.INV]) w.setCursor(carried, out);
+        }
+        System.arraycopy(invNow, 0, invSent, 0, World.INV_PUB);
     }
 
     /**
